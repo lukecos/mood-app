@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   SafeAreaView,
-  ScrollView,
   View,
   Text,
   TouchableOpacity,
@@ -11,6 +10,9 @@ import {
   Animated,
   PanResponder,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from 'react-native';
 import { saveMoodEntry as saveToStorage, getMoodEntryForDate } from './storage';
 
@@ -27,6 +29,8 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
   const [currentAdviceIndex, setCurrentAdviceIndex] = useState(0);
   const [todaysMoodEntry, setTodaysMoodEntry] = useState<any>(null);
   const [hasEntryToday, setHasEntryToday] = useState<boolean>(false);
+  const [containerPaddingBottom, setContainerPaddingBottom] = useState(140); // Dynamic padding
+  const [tempSelectedMood, setTempSelectedMood] = useState<number | null>(3); // Default to Neutral
 
   // Animation values
   const moodSelectorPosition = useRef(new Animated.Value(0)).current;
@@ -39,44 +43,44 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
   // Mood-specific advice collections
   const moodAdvice = {
     1: [ // Very Sad
-      "Take deep breaths and remember this feeling will pass",
-      "Reach out to someone you trust and talk about your feelings",
-      "Try gentle movement like stretching or a short walk",
-      "Practice self-compassion - treat yourself like a good friend would",
-      "Consider professional support if these feelings persist",
-      "Create a cozy, safe space for yourself right now"
+      "Take deep breaths and remember this feeling will pass with time",
+      "Reach out to someone you trust and talk about your feelings openly",
+      "Try gentle movement like stretching or taking a short walk outside",
+      "Practice self-compassion - treat yourself like a good friend would treat you",
+      "Consider professional support if these feelings persist or feel overwhelming",
+      "Create a cozy, safe space for yourself right now and rest there"
     ],
     2: [ // Sad
-      "Go for a walk outside and get some fresh air",
-      "Make your bed and tidy up your immediate space",
-      "Listen to music that comforts you",
-      "Do something creative, even if it's just doodling",
-      "Call a friend or family member for connection",
-      "Take a warm shower or bath to reset your energy"
+      "Go for a walk outside and get some fresh air to help clear your mind",
+      "Make your bed and tidy up your immediate space to create order around you",
+      "Listen to music that comforts you and helps you feel less alone",
+      "Do something creative, even if it's just doodling or writing a few words",
+      "Call a friend or family member for connection and meaningful conversation",
+      "Take a warm shower or bath to reset your energy and wash away stress"
     ],
     3: [ // Neutral
-      "Set a small, achievable goal for today",
-      "Practice gratitude by writing down 3 good things",
-      "Try a new activity or hobby you've been curious about",
-      "Take time to reflect on what you need right now",
-      "Go for a walk and observe your surroundings mindfully",
-      "Do something kind for someone else"
+      "Set a small, achievable goal for today that will give you a sense of progress",
+      "Practice gratitude by writing down 3 good things that happened recently",
+      "Try a new activity or hobby you've been curious about but haven't started yet",
+      "Take time to reflect on what you need right now to feel more fulfilled",
+      "Go for a walk and observe your surroundings mindfully, noticing small details",
+      "Do something kind for someone else to create positive connections today"
     ],
     4: [ // Happy
-      "Share your good mood with someone you care about",
-      "Capture this moment with a photo or journal entry",
-      "Use this energy to tackle something you've been putting off",
-      "Try something new while you're feeling confident",
-      "Help someone else - spread the positive energy",
-      "Take time to appreciate what's going well in your life"
+      "Share your good mood with someone you care about and brighten their day too",
+      "Capture this moment with a photo or journal entry to remember this feeling",
+      "Use this positive energy to tackle something you've been putting off recently",
+      "Try something new while you're feeling confident and open to experiences",
+      "Help someone else in need - spread the positive energy you're feeling right now",
+      "Take time to appreciate what's going well in your life and acknowledge your wins"
     ],
     5: [ // Very Happy
-      "Celebrate this feeling - you deserve it!",
-      "Plan something fun for your future self to look forward to",
-      "Share your joy - call someone and spread the happiness",
-      "Document what led to this feeling so you can recreate it",
-      "Use this high energy for a meaningful project or goal",
-      "Practice gratitude for this moment of pure joy"
+      "Celebrate this amazing feeling - you deserve every moment of this joy!",
+      "Plan something fun for your future self to look forward to and extend this happiness",
+      "Share your joy - call someone special and spread this wonderful happiness around",
+      "Document what led to this feeling so you can recreate these conditions again",
+      "Use this high energy for a meaningful project or goal that excites you",
+      "Practice gratitude for this moment of pure joy and let it fill your entire being"
     ]
   };
 
@@ -154,6 +158,17 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
   // Check for today's mood on component mount
   useEffect(() => {
     checkTodaysMood();
+  }, []);
+
+  // Keyboard event listeners to reset padding
+  useEffect(() => {
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setContainerPaddingBottom(140); // Reset to original padding
+    });
+
+    return () => {
+      keyboardDidHideListener?.remove();
+    };
   }, []);
 
   const getMoodLabel = (value: number) => {
@@ -392,27 +407,32 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
   });
 
   return (
-    <View style={styles.container}>
-      {hasEntryToday ? (
-        // Show today's mood summary
-        <Animated.View 
-          style={[
-            styles.moodSelectorContainer,
-            {
-              transform: [{ translateY }],
-            },
-          ]}
-        >
-          <View style={styles.titleContainer}>
-            <Text style={styles.summaryTitle}>Today's Mood Entry</Text>
-          </View>
+    <KeyboardAvoidingView 
+      style={styles.keyboardContainer}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+    >
+      <View style={[styles.container, { paddingBottom: containerPaddingBottom }]}>
+        {hasEntryToday ? (
+          // Show today's mood summary
+          <Animated.View 
+            style={[
+              styles.moodSelectorContainer,
+              {
+                transform: [{ translateY }],
+              },
+            ]}
+          >
+            <View style={styles.titleContainer}>
+              <Text style={styles.summaryTitle}>Today's Mood Entry</Text>
+            </View>
           
           <TouchableOpacity
             onPress={() => {
               setHasEntryToday(false);
               setTodaysMoodEntry(null);
             }}
-            activeOpacity={0.7}
+            activeOpacity={1}
           >
             <Animated.View 
               style={[
@@ -460,13 +480,13 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
           {/* Mood Orb */}
           <TouchableOpacity
             onPress={selectedMood ? resetMoodSelection : undefined}
-            activeOpacity={selectedMood ? 0.7 : 1}
+            activeOpacity={1}
           >
             <Animated.View
               style={[
                 styles.moodOrb,
                 {
-                  backgroundColor: getOrbColor(moodValue),
+                  backgroundColor: selectedMood ? getOrbColor(selectedMood) : (tempSelectedMood ? getOrbColor(tempSelectedMood) : getOrbColor(moodValue)),
                   transform: [
                     { scale: orbScale },
                     { rotate: orbRotation.interpolate({
@@ -484,49 +504,55 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
           </TouchableOpacity>
 
           {/* Mood Label */}
-          <Text style={styles.moodLabel}>{getMoodLabel(moodValue)}</Text>
+          <Text style={styles.moodLabel}>
+            {selectedMood ? getMoodLabel(selectedMood) : (tempSelectedMood ? getMoodLabel(tempSelectedMood) : "Select your mood")}
+          </Text>
 
-          {/* Mood Slider - Only show when no mood selected */}
+          {/* 5 Mood Options - Only show when no mood selected */}
           {!selectedMood && (
-            <>
-              <View style={styles.sliderContainer}>
-                <Text style={styles.sliderLabel}>Slide to adjust your mood</Text>
-                <View style={styles.sliderTrack} {...panResponder.panHandlers}>
-                  <Animated.View 
-                    style={[
-                      styles.sliderFill,
-                      {
-                        width: sliderPosition.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: ['0%', '100%'],
-                        }),
-                        backgroundColor: getOrbColor(moodValue),
-                      }
-                    ]}
-                  />
-                  <Animated.View
-                    style={[
-                      styles.sliderThumb,
-                      {
-                        left: sliderPosition.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0, sliderWidth - 20],
-                        }),
-                        backgroundColor: getOrbColor(moodValue),
-                      }
-                    ]}
-                  />
-                </View>
+            <View style={styles.moodOptionsContainer}>
+              <Text style={styles.moodOptionsTitle}>How are you feeling?</Text>
+              <View style={styles.moodOptionsGrid}>
+                {Object.entries(moodConfigs).map(([value, config]) => (
+                  <TouchableOpacity
+                    key={value}
+                    style={styles.moodOption}
+                    activeOpacity={1}
+                    onPress={() => {
+                      const moodNum = parseInt(value);
+                      setTempSelectedMood(moodNum);
+                      setMoodValue(moodNum);
+                    }}
+                  >
+                    <View style={[
+                      styles.moodOptionOrb, 
+                      { backgroundColor: config.color },
+                      tempSelectedMood === parseInt(value) && styles.selectedMoodOption
+                    ]}>
+                      <View style={styles.moodOptionOrbInner}>
+                        <View style={styles.moodOptionOrbHighlight} />
+                      </View>
+                    </View>
+                    <Text style={styles.moodOptionLabel}>{config.label}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-
-              {/* Select Button */}
-              <TouchableOpacity 
-                style={[styles.selectButton, { backgroundColor: getOrbColor(moodValue) }]}
-                onPress={handleMoodSelection}
-              >
-                <Text style={styles.selectButtonText}>Select This Mood</Text>
-              </TouchableOpacity>
-            </>
+              
+              {/* Confirm Button - Only show when a mood is temporarily selected */}
+              {tempSelectedMood && (
+                <TouchableOpacity 
+                  style={[styles.confirmButton, { backgroundColor: getOrbColor(tempSelectedMood) }]}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setSelectedMood(tempSelectedMood);
+                    setTempSelectedMood(null);
+                    handleMoodSelection();
+                  }}
+                >
+                  <Text style={styles.confirmButtonText}>Confirm Mood</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           )}
         </Animated.View>
 
@@ -570,16 +596,22 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
         </Animated.View>
         </>
       )}
-    </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
+    paddingTop: 160, // Much more top spacing to clear the header
+    // paddingBottom is now dynamic via state
   },
   moodSelectorContainer: {
     alignItems: 'center',
@@ -722,7 +754,7 @@ const styles = StyleSheet.create({
   // Content Styles
   contentContainer: {
     marginTop: 40,
-    paddingBottom: 120, // More space above Android navigation
+    paddingBottom: 100, // Space for fixed Save Entry button
   },
   section: {
     backgroundColor: '#ffffff',
@@ -760,6 +792,7 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: '#0284c7',
     minHeight: 100, // Fixed minimum height to prevent layout shifts
+    alignSelf: 'stretch', // Ensure container stretches to full width
   },
   adviceText: {
     fontSize: 16,
@@ -780,12 +813,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     paddingVertical: 12,
     alignItems: 'center',
-    marginTop: 15, // Reduced from 20 to tighten layout
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 4,
+    marginTop: 30,
   },
   saveButtonText: {
     color: '#ffffff',
@@ -816,5 +849,87 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#64748b',
     lineHeight: 22,
+  },
+  // Mood Options Styles
+  moodOptionsContainer: {
+    marginTop: 30,
+    width: '100%',
+  },
+  moodOptionsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1e293b',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  moodOptionsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-start',
+    paddingHorizontal: 10,
+  },
+  moodOption: {
+    width: '19%',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    marginBottom: 15,
+  },
+  moodOptionOrb: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    marginBottom: 8,
+  },
+  moodOptionOrbInner: {
+    width: '85%',
+    height: '85%',
+    borderRadius: 25,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  moodOptionOrbHighlight: {
+    position: 'absolute',
+    top: '15%',
+    left: '20%',
+    width: '40%',
+    height: '40%',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    borderRadius: 15,
+  },
+  moodOptionLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#1e293b',
+    textAlign: 'center',
+  },
+  selectedMoodOption: {
+    transform: [{ scale: 1.1 }],
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 12,
+  },
+  confirmButton: {
+    marginTop: 25,
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  confirmButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

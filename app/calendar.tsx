@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
+  ScrollView,
 } from 'react-native';
 import { getMoodHistory, MoodEntry } from './storage';
 
@@ -323,13 +324,19 @@ export default function MoodCalendar() {
         </View>
       ) : (
         <>
-          {renderMonth(currentMonth)}
-          
-          {/* Mood Patterns Analysis */}
-          <View style={styles.patternsContainer}>
-            <Text style={styles.patternsTitle}>Monthly Patterns</Text>
-            {renderMoodPatterns()}
-          </View>
+          <ScrollView 
+            style={styles.scrollContainer}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {renderMonth(currentMonth)}
+            
+            {/* Mood Patterns Analysis */}
+            <View style={styles.patternsContainer}>
+              <Text style={styles.patternsTitle}>Monthly Patterns</Text>
+              {renderMoodPatterns()}
+            </View>
+          </ScrollView>
 
           {/* Custom Mood Details Modal */}
           <Modal
@@ -385,6 +392,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+    paddingBottom: 80, // Space above Android navigation UI
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 120, // Extra space above Android navigation UI
   },
   monthContainer: {
     paddingHorizontal: 20,
