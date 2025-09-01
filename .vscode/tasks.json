@@ -18,6 +18,13 @@
 			"command": "npm start",
 			"isBackground": true,
 			"group": "build"
+		},
+		{
+			"label": "start-dev",
+			"type": "shell",
+			"command": "npm start",
+			"isBackground": true,
+			"group": "build"
 		}
 	]
 }

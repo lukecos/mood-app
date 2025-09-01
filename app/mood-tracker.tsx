@@ -776,11 +776,16 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     backgroundColor: '#0284c7',
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
+    borderRadius: 25,
+    paddingHorizontal: 30,
+    paddingVertical: 12,
     alignItems: 'center',
     marginTop: 15, // Reduced from 20 to tighten layout
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   saveButtonText: {
     color: '#ffffff',
