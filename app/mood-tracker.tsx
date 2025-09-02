@@ -26,6 +26,8 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
   const [selectedMood, setSelectedMood] = useState<number | null>(null);
   const [moodValue, setMoodValue] = useState<number>(3); // Default to neutral (middle)
   const [journalText, setJournalText] = useState('');
+  const [wordCount, setWordCount] = useState(0);
+  const WORD_LIMIT = 50;
   const [currentAdviceIndex, setCurrentAdviceIndex] = useState(0);
   const [todaysMoodEntry, setTodaysMoodEntry] = useState<any>(null);
   const [hasEntryToday, setHasEntryToday] = useState<boolean>(false);
@@ -42,7 +44,7 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
 
   // Mood-specific advice collections
   const moodAdvice = {
-    1: [ // Very Sad
+    1: [ // Rough
       "Take deep breaths and remember this feeling will pass with time",
       "Reach out to someone you trust and talk about your feelings openly",
       "Try gentle movement like stretching or taking a short walk outside",
@@ -50,7 +52,7 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
       "Consider professional support if these feelings persist or feel overwhelming",
       "Create a cozy, safe space for yourself right now and rest there"
     ],
-    2: [ // Sad
+    2: [ // Meh
       "Go for a walk outside and get some fresh air to help clear your mind",
       "Make your bed and tidy up your immediate space to create order around you",
       "Listen to music that comforts you and helps you feel less alone",
@@ -58,7 +60,7 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
       "Call a friend or family member for connection and meaningful conversation",
       "Take a warm shower or bath to reset your energy and wash away stress"
     ],
-    3: [ // Neutral
+    3: [ // Fine
       "Set a small, achievable goal for today that will give you a sense of progress",
       "Practice gratitude by writing down 3 good things that happened recently",
       "Try a new activity or hobby you've been curious about but haven't started yet",
@@ -66,7 +68,7 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
       "Go for a walk and observe your surroundings mindfully, noticing small details",
       "Do something kind for someone else to create positive connections today"
     ],
-    4: [ // Happy
+    4: [ // Great
       "Share your good mood with someone you care about and brighten their day too",
       "Capture this moment with a photo or journal entry to remember this feeling",
       "Use this positive energy to tackle something you've been putting off recently",
@@ -74,7 +76,7 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
       "Help someone else in need - spread the positive energy you're feeling right now",
       "Take time to appreciate what's going well in your life and acknowledge your wins"
     ],
-    5: [ // Very Happy
+    5: [ // Peak
       "Celebrate this amazing feeling - you deserve every moment of this joy!",
       "Plan something fun for your future self to look forward to and extend this happiness",
       "Share your joy - call someone special and spread this wonderful happiness around",
@@ -86,34 +88,34 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
 
   // Mood configurations with colors and labels
   const moodConfigs = {
-    1: { color: '#dc2626', label: 'Very Sad', emoji: '😢' },
-    2: { color: '#ea580c', label: 'Sad', emoji: '😔' },
-    3: { color: '#eab308', label: 'Neutral', emoji: '😐' },
-    4: { color: '#16a34a', label: 'Happy', emoji: '😊' },
-    5: { color: '#7c3aed', label: 'Very Happy', emoji: '😄' },
+    1: { color: '#f87171', label: 'Rough', emoji: '😢' }, // Coral Red - warmer red
+    2: { color: '#fb923c', label: 'Meh', emoji: '😔' },   // Orange - warm transition
+    3: { color: '#fbbf24', label: 'Fine', emoji: '😐' },  // Amber - rich gold
+    4: { color: '#34d399', label: 'Great', emoji: '😊' }, // Emerald - vibrant green
+    5: { color: '#10b981', label: 'Peak', emoji: '😄' },  // Green - deeper green
   };
 
   // Get interpolated color based on mood value (smooth transitions)
   const getOrbColor = (value: number) => {
     // Smooth color interpolation between mood colors
-    if (value <= 1) return '#dc2626'; // Very Sad - Red
+    if (value <= 1) return '#f87171'; // Rough - Coral Red
     if (value <= 2) {
       const factor = value - 1;
-      return interpolateColor('#dc2626', '#ea580c', factor); // Red to Orange
+      return interpolateColor('#f87171', '#fb923c', factor); // Coral Red to Orange
     }
     if (value <= 3) {
       const factor = value - 2;
-      return interpolateColor('#ea580c', '#eab308', factor); // Orange to Yellow
+      return interpolateColor('#fb923c', '#fbbf24', factor); // Orange to Amber
     }
     if (value <= 4) {
       const factor = value - 3;
-      return interpolateColor('#eab308', '#16a34a', factor); // Yellow to Green
+      return interpolateColor('#fbbf24', '#34d399', factor); // Amber to Emerald
     }
     if (value <= 5) {
       const factor = value - 4;
-      return interpolateColor('#16a34a', '#7c3aed', factor); // Green to Purple
+      return interpolateColor('#34d399', '#10b981', factor); // Emerald to Green
     }
-    return '#7c3aed'; // Very Happy - Purple
+    return '#10b981'; // Peak - Green
   };
 
   // Helper function to interpolate between two hex colors
@@ -189,6 +191,23 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
     };
     
     return moodPrompts[mood as keyof typeof moodPrompts] || "Why do you feel this way?";
+  };
+
+  // Word counting and limiting function
+  const handleJournalTextChange = (text: string) => {
+    const words = text.trim().split(/\s+/).filter(word => word.length > 0);
+    const currentWordCount = words.length;
+    
+    if (currentWordCount <= WORD_LIMIT) {
+      setJournalText(text);
+      setWordCount(currentWordCount);
+    } else {
+      // If word limit exceeded, truncate to the word limit
+      const truncatedWords = words.slice(0, WORD_LIMIT);
+      const truncatedText = truncatedWords.join(' ');
+      setJournalText(truncatedText);
+      setWordCount(WORD_LIMIT);
+    }
   };
 
   // Get current advice for selected mood
@@ -328,6 +347,7 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
   const resetMoodSelection = () => {
     setSelectedMood(null);
     setJournalText('');
+    setWordCount(0);
     setCurrentAdviceIndex(0);
     
     // Animate back to center
@@ -366,6 +386,7 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
           // Reset form
           setSelectedMood(null);
           setJournalText('');
+          setWordCount(0);
           setCurrentAdviceIndex(0);
           
           // Reset animations
@@ -575,8 +596,17 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
                   multiline
                   placeholder="Write about your feelings..."
                   value={journalText}
-                  onChangeText={setJournalText}
+                  onChangeText={handleJournalTextChange}
                 />
+                <View style={styles.wordCountContainer}>
+                  <Text style={[
+                    styles.wordCountText,
+                    wordCount > WORD_LIMIT * 0.9 && styles.wordCountWarning,
+                    wordCount === WORD_LIMIT && styles.wordCountLimit
+                  ]}>
+                    {wordCount}/{WORD_LIMIT} words
+                  </Text>
+                </View>
               </View>
 
               {/* Personalized Advice */}
@@ -931,5 +961,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  // Word Count Styles
+  wordCountContainer: {
+    alignItems: 'flex-end',
+    marginTop: 8,
+  },
+  wordCountText: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  wordCountWarning: {
+    color: '#f59e0b', // Orange warning when approaching limit
+  },
+  wordCountLimit: {
+    color: '#dc2626', // Red when at limit
+    fontWeight: '600',
   },
 });

@@ -17,6 +17,7 @@ export default function MoodCalendar() {
   const [moodHistory, setMoodHistory] = useState<Record<string, MoodEntry>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
+  const [viewMode, setViewMode] = useState<'calendar' | 'history'>('calendar');
   const [selectedMoodData, setSelectedMoodData] = useState<{
     date: string;
     mood: string;
@@ -31,11 +32,11 @@ export default function MoodCalendar() {
   // Memoized mood helper functions
   const getMoodColor = useCallback((mood: number) => {
     const colors = {
-      1: '#dc2626', // Very Sad - Red
-      2: '#ea580c', // Sad - Orange  
-      3: '#eab308', // Neutral - Yellow
-      4: '#16a34a', // Happy - Green
-      5: '#7c3aed', // Very Happy - Purple
+      1: '#f87171', // Rough - Coral Red
+      2: '#fb923c', // Meh - Orange  
+      3: '#fbbf24', // Fine - Amber
+      4: '#34d399', // Great - Emerald
+      5: '#10b981', // Peak - Green
     };
     return colors[mood as keyof typeof colors] || '#e5e7eb';
   }, []);
@@ -186,11 +187,11 @@ export default function MoodCalendar() {
                     
                     // Get mood description
                     const moodDescriptions = {
-                      1: 'Very Sad',
-                      2: 'Sad',
-                      3: 'Neutral',
-                      4: 'Happy',
-                      5: 'Very Happy'
+                      1: 'Rough',
+                      2: 'Meh',
+                      3: 'Fine',
+                      4: 'Great',
+                      5: 'Peak'
                     };
                     
                     const moodDescription = moodDescriptions[moodEntry.mood as keyof typeof moodDescriptions];
@@ -315,6 +316,83 @@ export default function MoodCalendar() {
     });
   }, [moodHistory]);
 
+  // Render mood history as a chronological list
+  const renderMoodHistory = useCallback(() => {
+    const entries = Object.entries(moodHistory)
+      .map(([dateKey, entry]) => ({
+        ...entry,
+        dateKey,
+        displayDate: new Date(dateKey + 'T00:00:00').toLocaleDateString('en-AU', {
+          weekday: 'short',
+          day: '2-digit',
+          month: 'short',
+          year: '2-digit'
+        })
+      }))
+      .sort((a, b) => new Date(b.dateKey + 'T00:00:00').getTime() - new Date(a.dateKey + 'T00:00:00').getTime());
+
+    if (entries.length === 0) {
+      return (
+        <View style={styles.emptyHistoryContainer}>
+          <Text style={styles.emptyHistoryText}>No mood history yet!</Text>
+          <Text style={styles.emptyHistorySubtext}>Start tracking your moods to see your history here.</Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.historyContainer}>
+        {entries.map((entry, index) => {
+          const moodDescriptions = {
+            1: 'Rough',
+            2: 'Meh', 
+            3: 'Fine',
+            4: 'Great',
+            5: 'Peak'
+          };
+          
+          const moodLabel = moodDescriptions[entry.mood as keyof typeof moodDescriptions];
+          const moodColor = getMoodColor(entry.mood);
+          
+          return (
+            <TouchableOpacity
+              key={entry.dateKey}
+              style={styles.historyItem}
+              onPress={() => {
+                setSelectedMoodData({
+                  date: entry.displayDate,
+                  mood: moodLabel,
+                  journal: entry.journal || '',
+                  moodValue: entry.mood,
+                  moodColor: moodColor
+                });
+                setModalVisible(true);
+              }}
+            >
+              <View style={styles.historyItemHeader}>
+                <View style={styles.historyDateContainer}>
+                  <Text style={styles.historyDate}>{entry.displayDate}</Text>
+                </View>
+                <View style={styles.historyMoodContainer}>
+                  <View style={[styles.historyMoodDot, { backgroundColor: moodColor }]} />
+                  <Text style={[styles.historyMoodLabel, { color: moodColor }]}>{moodLabel}</Text>
+                </View>
+              </View>
+              
+              {entry.journal && entry.journal.trim() && (
+                <View style={styles.historyJournalContainer}>
+                  <Text style={styles.historyJournalText} numberOfLines={2}>
+                    "{entry.journal}"
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    );
+  }, [moodHistory, getMoodColor]);
+
   return (
     <View style={styles.container}>
       {isLoading ? (
@@ -324,18 +402,63 @@ export default function MoodCalendar() {
         </View>
       ) : (
         <>
+          {/* View Mode Toggle */}
+          <View style={styles.viewToggleContainer}>
+            <TouchableOpacity
+              style={[
+                styles.viewToggleButton,
+                viewMode === 'calendar' && styles.viewToggleButtonActive
+              ]}
+              onPress={() => setViewMode('calendar')}
+            >
+              <Text style={[
+                styles.viewToggleText,
+                viewMode === 'calendar' && styles.viewToggleTextActive
+              ]}>
+                📅 Calendar
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.viewToggleButton,
+                viewMode === 'history' && styles.viewToggleButtonActive
+              ]}
+              onPress={() => setViewMode('history')}
+            >
+              <Text style={[
+                styles.viewToggleText,
+                viewMode === 'history' && styles.viewToggleTextActive
+              ]}>
+                📊 History
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           <ScrollView 
             style={styles.scrollContainer}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {renderMonth(currentMonth)}
-            
-            {/* Mood Patterns Analysis */}
-            <View style={styles.patternsContainer}>
-              <Text style={styles.patternsTitle}>Monthly Patterns</Text>
-              {renderMoodPatterns()}
-            </View>
+            {viewMode === 'calendar' ? (
+              <>
+                {renderMonth(currentMonth)}
+                
+                {/* Mood Patterns Analysis */}
+                <View style={styles.patternsContainer}>
+                  <Text style={styles.patternsTitle}>Monthly Patterns</Text>
+                  {renderMoodPatterns()}
+                </View>
+              </>
+            ) : (
+              <>
+                {/* Mood History List */}
+                <View style={styles.historyTitle}>
+                  <Text style={styles.historyTitleText}>Your Mood Journey</Text>
+                  <Text style={styles.historySubtitle}>Tap any entry to see details</Text>
+                </View>
+                {renderMoodHistory()}
+              </>
+            )}
           </ScrollView>
 
           {/* Custom Mood Details Modal */}
@@ -628,5 +751,124 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  // View Toggle Styles
+  viewToggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 12,
+    padding: 4,
+    margin: 20,
+    marginBottom: 10,
+  },
+  viewToggleButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  viewToggleButtonActive: {
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  viewToggleText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#64748b',
+  },
+  viewToggleTextActive: {
+    color: '#1e293b',
+    fontWeight: '600',
+  },
+  // History View Styles
+  historyTitle: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 15,
+    alignItems: 'center',
+  },
+  historyTitleText: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    marginBottom: 4,
+  },
+  historySubtitle: {
+    fontSize: 14,
+    color: '#64748b',
+  },
+  emptyHistoryContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyHistoryText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 8,
+  },
+  emptyHistorySubtext: {
+    fontSize: 14,
+    color: '#94a3b8',
+    textAlign: 'center',
+  },
+  historyContainer: {
+    paddingHorizontal: 20,
+  },
+  historyItem: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    marginBottom: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  historyItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  historyDateContainer: {
+    flex: 1,
+  },
+  historyDate: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  historyMoodContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  historyMoodDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  historyMoodLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  historyJournalContainer: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  historyJournalText: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontStyle: 'italic',
+    lineHeight: 20,
   },
 });
