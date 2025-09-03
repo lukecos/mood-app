@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TouchableOpacity, Text, StyleSheet, SafeAreaView, Platform } from 'react-native';
+import { View, TouchableOpacity, Text, StyleSheet, SafeAreaView, Platform, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -19,11 +19,15 @@ function AppNavigationContent() {
       paddingTop: insets.top + 10,
       backgroundColor: colors.headerBackground,
       borderBottomColor: colors.border
-    }]}>
-      <Text style={[styles.headerTitle, { color: colors.text }]}>
-        SimpleMoods
-      </Text>
-      
+    }]}> 
+      <View style={styles.headerTitleRow}>
+        <Image
+          source={require('../assets/AppLogo.png')}
+          style={styles.headerIcon}
+          resizeMode="contain"
+        />
+        <Text style={[styles.headerTitle, { color: colors.text }]}>SimpleMoods</Text>
+      </View>
       <View style={styles.headerButtons}>
         {/* Home/Tracker button */}
         <TouchableOpacity
@@ -112,6 +116,16 @@ export default function AppNavigation() {
 }
 
 const styles = StyleSheet.create({
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerIcon: {
+    width: 28,
+    height: 28,
+    marginRight: 8,
+    borderRadius: 6,
+  },
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
