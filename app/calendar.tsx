@@ -562,8 +562,8 @@ const styles = StyleSheet.create({
   dayHeaders: {
     flexDirection: 'row',
     marginBottom: 10,
-    justifyContent: 'space-around', // Match calendar grid distribution
     paddingHorizontal: 10,
+    // Remove justifyContent - let margins handle spacing to match calendar grid
   },
   dayHeader: {
     width: 40,     // Match day cell width
@@ -572,17 +572,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#64748b',
     paddingVertical: 8,
+    marginHorizontal: 2.5, // Match day cell spacing
   },
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-around', // Distribute days evenly
     paddingHorizontal: 10,
+    // Remove justifyContent - let margins handle spacing for precise 7-column grid
   },
   emptyDay: {
     width: 40,     // Fixed pixel size for consistency
     height: 40,    // Same as width to make perfect circles
-    margin: 2,     // Small margin for spacing
+    marginHorizontal: 2.5, // Calculated for even distribution: (screenWidth - 2*padding - 7*40) / 14
+    marginVertical: 2,
   },
   dayCell: {
     width: 40,     // Fixed pixel size for perfect circles
@@ -590,7 +592,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    margin: 2,     // Consistent spacing around each cell
+    marginHorizontal: 2.5, // Same as emptyDay for perfect alignment
+    marginVertical: 2,
     borderRadius: 20, // Half of width/height for perfect circle
     position: 'relative',
   },
