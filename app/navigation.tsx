@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { View, TouchableOpacity, Text, StyleSheet, SafeAreaView } from 'react-native';
+import React, { useState } from 'react';
+import { View, TouchableOpacity, Text, StyleSheet, SafeAreaView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -9,14 +9,10 @@ import { ThemeProvider, useTheme } from './ThemeContext';
 
 function AppNavigationContent() {
   const [currentScreen, setCurrentScreen] = useState<'tracker' | 'calendar'>('tracker');
+  const [showHistory, setShowHistory] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const insets = useSafeAreaInsets();
-  const { theme, toggleTheme, colors } = useTheme();
-
-  const handleNavigateToCalendar = () => {
-    setCurrentScreen('calendar');
-    setRefreshKey(prev => prev + 1); // Force calendar to re-render and load fresh data
-  };
+  const { colors } = useTheme();
 
   const renderHeader = () => (
     <View style={[styles.header, { 
@@ -25,36 +21,65 @@ function AppNavigationContent() {
       borderBottomColor: colors.border
     }]}>
       <Text style={[styles.headerTitle, { color: colors.text }]}>
-        {currentScreen === 'tracker' ? 'Mood Tracker' : 'Mood Calendar'}
+        SimpleMoods
       </Text>
       
       <View style={styles.headerButtons}>
-        {/* Dark mode toggle */}
+        {/* Home/Tracker button */}
         <TouchableOpacity
-          onPress={toggleTheme}
-          style={[styles.headerButton, { backgroundColor: colors.buttonBackground }]}
+          onPress={() => {
+            setCurrentScreen('tracker');
+            setShowHistory(false);
+          }}
+          style={[styles.headerButton, { 
+            backgroundColor: currentScreen === 'tracker' ? colors.buttonBackground : 'transparent'
+          }]}
         >
           <Ionicons 
-            name={theme === 'light' ? 'moon-outline' : 'sunny-outline'} 
+            name="home-outline"
             size={22} 
             color={colors.buttonText}
           />
         </TouchableOpacity>
-        
-        {/* Navigation button */}
+
+        {/* Calendar button */}
         <TouchableOpacity
           onPress={() => {
-            if (currentScreen === 'tracker') {
-              handleNavigateToCalendar();
-            } else {
-              setCurrentScreen('tracker');
+            setCurrentScreen('calendar');
+            setShowHistory(false);
+            // Refresh if we're switching from tracker OR from history mode
+            if (currentScreen !== 'calendar' || showHistory) {
+              setRefreshKey(prev => prev + 1);
             }
           }}
-          style={[styles.headerButton, { backgroundColor: colors.buttonBackground }]}
+          style={[styles.headerButton, { 
+            backgroundColor: (currentScreen === 'calendar' && !showHistory) ? colors.buttonBackground : 'transparent'
+          }]}
         >
           <Ionicons 
-            name={currentScreen === 'tracker' ? 'calendar-outline' : 'arrow-back-outline'} 
-            size={24} 
+            name="calendar-outline"
+            size={22} 
+            color={colors.buttonText}
+          />
+        </TouchableOpacity>
+
+        {/* History button */}
+        <TouchableOpacity
+          onPress={() => {
+            setCurrentScreen('calendar');
+            setShowHistory(true);
+            // Only refresh if we're not already in history mode
+            if (!showHistory) {
+              setRefreshKey(prev => prev + 1);
+            }
+          }}
+          style={[styles.headerButton, { 
+            backgroundColor: showHistory ? colors.buttonBackground : 'transparent'
+          }]}
+        >
+          <Ionicons 
+            name="bar-chart-outline"
+            size={22} 
             color={colors.buttonText}
           />
         </TouchableOpacity>
@@ -66,9 +91,13 @@ function AppNavigationContent() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {renderHeader()}
       {currentScreen === 'tracker' ? (
-        <MoodTrackerApp onNavigateToCalendar={handleNavigateToCalendar} />
+        <MoodTrackerApp onNavigateToCalendar={() => {
+          setCurrentScreen('calendar');
+          setShowHistory(false);
+          setRefreshKey(prev => prev + 1);
+        }} />
       ) : (
-        <MoodCalendar key={refreshKey} />
+        <MoodCalendar key={refreshKey} initialViewMode={showHistory ? 'history' : 'calendar'} />
       )}
     </SafeAreaView>
   );
@@ -98,9 +127,11 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e2e8f0',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
     color: '#374151',
+    fontFamily: Platform.OS === 'ios' ? 'Avenir Next' : 'sans-serif',
+    letterSpacing: 0.5,
   },
   headerButtons: {
     flexDirection: 'row',

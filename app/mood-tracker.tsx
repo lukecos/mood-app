@@ -597,7 +597,7 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
           
           {todaysMoodEntry?.journal && (
             <View style={[styles.journalPreview, { backgroundColor: colors.surface }]}>
-              <Text style={[styles.journalLabel, { color: colors.text }]}>Your thoughts:</Text>
+              <Text style={[styles.journalLabel, { color: colors.text }]}>Your feelings:</Text>
               <Text style={[styles.journalText, { color: colors.textSecondary }]}>{todaysMoodEntry.journal}</Text>
             </View>
           )}

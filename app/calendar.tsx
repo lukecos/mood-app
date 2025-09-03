@@ -15,14 +15,18 @@ import { getMoodHistory, MoodEntry } from './storage';
 import { useTheme } from './ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export default function MoodCalendar() {
+interface MoodCalendarProps {
+  initialViewMode?: 'calendar' | 'history';
+}
+
+export default function MoodCalendar({ initialViewMode = 'calendar' }: MoodCalendarProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [moodHistory, setMoodHistory] = useState<Record<string, MoodEntry>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
-  const [viewMode, setViewMode] = useState<'calendar' | 'history'>('calendar');
+  const [viewMode, setViewMode] = useState<'calendar' | 'history'>(initialViewMode);
   const [selectedMoodData, setSelectedMoodData] = useState<{
     date: string;
     mood: string;
@@ -144,15 +148,29 @@ export default function MoodCalendar() {
       
       console.log('📝 Creating test entries...');
       
-      // Generate entries for the last 6 months - simplified approach
-      for (let monthOffset = 0; monthOffset < 6; monthOffset++) {
+      // Generate entries for random historical months (not consecutive)
+      const randomMonthCount = Math.floor(Math.random() * 6) + 1; // Random between 1-6
+      console.log(`🎲 Generating data for ${randomMonthCount} historical months`);
+      
+      // Create array of possible month offsets (1-12 to skip current month and go back up to a year)
+      const possibleOffsets = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+      
+      // Randomly select which months to populate
+      const selectedOffsets = possibleOffsets
+        .sort(() => Math.random() - 0.5) // Shuffle the array
+        .slice(0, randomMonthCount) // Take only the number we want
+        .sort((a, b) => a - b); // Sort them so we process in chronological order
+      
+      console.log(`📅 Selected month offsets: ${selectedOffsets.join(', ')}`);
+      
+      for (const monthOffset of selectedOffsets) {
         console.log(`📆 Processing month offset: ${monthOffset}`);
         
         const targetMonth = new Date(today.getFullYear(), today.getMonth() - monthOffset, 1);
         console.log(`🗓️ Target month: ${targetMonth.getFullYear()}-${targetMonth.getMonth() + 1}`);
         
         // Fixed number of entries per month to avoid infinite loops
-        const daysToAdd = [5, 10, 15, 20, 25]; // Fixed days per month
+        const daysToAdd = [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29]; // Fixed days per month (15 entries)
         
         for (const day of daysToAdd) {
           const entryDate = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), day);
@@ -467,26 +485,148 @@ export default function MoodCalendar() {
     });
   }, [moodHistory, colors, displayMonth]);
 
-  // Generate list of last 6 months for history view
-  const getLastSixMonths = useCallback(() => {
-    const months = [];
+  // Generate list of all historical months for history view (excluding current month)
+  const getHistoricalMonths = useCallback(() => {
+    const months: Array<{date: Date, key: string, name: string}> = [];
     const today = new Date();
+    const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
     
-    for (let i = 0; i < 6; i++) {
-      const monthDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
-      months.push({
-        date: monthDate,
-        key: `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`,
-        name: monthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-      });
+    // Get all unique months from mood history data
+    const monthsWithData = new Set<string>();
+    Object.keys(moodHistory).forEach(dateKey => {
+      const monthKey = dateKey.substring(0, 7); // Extract YYYY-MM
+      if (monthKey !== currentMonthKey) { // Exclude current month
+        monthsWithData.add(monthKey);
+      }
+    });
+    
+    // If no historical data, return empty array
+    if (monthsWithData.size === 0) {
+      return months;
+    }
+    
+    // Convert to sorted array to find the range
+    const sortedMonthKeys = Array.from(monthsWithData).sort();
+    const earliestMonth = sortedMonthKeys[0]; // Earliest month with data
+    const latestMonth = sortedMonthKeys[sortedMonthKeys.length - 1]; // Latest month with data
+    
+    // Parse earliest and latest months
+    const [earliestYear, earliestMonthNum] = earliestMonth.split('-').map(Number);
+    const [latestYear, latestMonthNum] = latestMonth.split('-').map(Number);
+    
+    // Generate all months from latest to earliest (including empty ones in between)
+    const startDate = new Date(latestYear, latestMonthNum - 1, 1);
+    const endDate = new Date(earliestYear, earliestMonthNum - 1, 1);
+    
+    let currentDate = new Date(startDate);
+    while (currentDate >= endDate) {
+      const monthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+      
+      // Skip current month even if it's in the range
+      if (monthKey !== currentMonthKey) {
+        months.push({
+          date: new Date(currentDate),
+          key: monthKey,
+          name: currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+        });
+      }
+      
+      // Move to previous month
+      currentDate.setMonth(currentDate.getMonth() - 1);
     }
     
     return months;
-  }, []);
+  }, [moodHistory]);
 
-  // Render mood history as monthly sections for last 6 months
+  // Render bar chart for current month
+  const renderCurrentMonthBarChart = useCallback(() => {
+    const currentYear = displayMonth.getFullYear();
+    const currentMonthIndex = displayMonth.getMonth();
+    
+    // Get entries for the current display month
+    const monthEntries = Object.entries(moodHistory)
+      .filter(([dateKey, entry]) => {
+        const entryDate = new Date(entry.date);
+        return entryDate.getFullYear() === currentYear && entryDate.getMonth() === currentMonthIndex;
+      })
+      .map(([, entry]) => entry);
+
+    return (
+      <View style={styles.historyContainer}>
+        <View style={[styles.historyMonthSection, { backgroundColor: colors.surface }]}>
+          <View style={[styles.historyMonthHeader, { backgroundColor: colors.cardBackground }]}>
+            <Text style={[styles.historyMonthTitle, { color: colors.text }]}>
+              Mood Summary
+            </Text>
+            <Text style={[styles.historyMonthStats, { color: colors.textMuted }]}>
+              {monthEntries.length} {monthEntries.length === 1 ? 'entry' : 'entries'}
+            </Text>
+          </View>
+          
+          {monthEntries.length === 0 ? (
+            <View style={styles.historyEmptyMonth}>
+              <Text style={[styles.historyEmptyMonthText, { color: colors.textMuted }]}>No entries this month</Text>
+            </View>
+          ) : (
+            <View style={styles.historyMonthEntries}>
+              {/* Mood Distribution Bar Chart */}
+              <View style={styles.moodSegmentedBarContainer}>
+                {/* Horizontal Bar with Color Segments */}
+                <View style={styles.segmentedBar}>
+                  {[1, 2, 3, 4, 5].map(mood => {
+                    const entriesForMood = monthEntries.filter(entry => entry.mood === mood).length;
+                    if (entriesForMood === 0) return null;
+                    
+                    return (
+                      <View
+                        key={mood}
+                        style={{
+                          height: '100%',
+                          backgroundColor: getMoodColor(mood),
+                          flex: entriesForMood,
+                          minWidth: 1,
+                        }}
+                      />
+                    );
+                  })}
+                </View>
+                
+                {/* Color Legend */}
+                <View style={styles.moodLegend}>
+                  {[
+                    { mood: 1, name: 'Rough' },
+                    { mood: 2, name: 'Meh' },
+                    { mood: 3, name: 'Fine' },
+                    { mood: 4, name: 'Great' },
+                    { mood: 5, name: 'Peak' }
+                  ].map(({ mood, name }) => {
+                    const count = monthEntries.filter(entry => entry.mood === mood).length;
+                    if (count === 0) return null;
+                    
+                    return (
+                      <View key={mood} style={styles.legendItem}>
+                        <View style={[
+                          styles.legendCircle,
+                          { backgroundColor: getMoodColor(mood) }
+                        ]} />
+                        <Text style={[styles.legendText, { color: colors.text }]}>
+                          {name}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  }, [displayMonth, moodHistory, getMoodColor, colors]);
+
+  // Render mood history as monthly sections for historical months
   const renderMoodHistory = useCallback(() => {
-    const lastSixMonths = getLastSixMonths();
+    const historicalMonths = getHistoricalMonths();
     
     // Check if there are any entries at all
     const totalEntries = Object.keys(moodHistory).length;
@@ -501,7 +641,7 @@ export default function MoodCalendar() {
     
     return (
       <View style={styles.historyContainer}>
-        {lastSixMonths.map((month, index) => {
+        {historicalMonths.map((month, index) => {
           // Get all entries for this month
           const monthEntries = Object.entries(moodHistory)
             .filter(([dateKey]) => dateKey.startsWith(month.key))
@@ -586,7 +726,7 @@ export default function MoodCalendar() {
         })}
       </View>
     );
-  }, [moodHistory, colors, getMoodColor, getMoodEmoji, getLastSixMonths]);
+  }, [moodHistory, colors, getMoodColor, getMoodEmoji, getHistoricalMonths]);
 
   return (
     <View style={[
@@ -603,40 +743,6 @@ export default function MoodCalendar() {
         </View>
       ) : (
         <>
-          {/* View Mode Toggle */}
-          <View style={[styles.viewToggleContainer, { backgroundColor: colors.surface }]}>
-            <TouchableOpacity
-              style={[
-                styles.viewToggleButton,
-                viewMode === 'calendar' && [styles.viewToggleButtonActive, { backgroundColor: colors.cardBackground }]
-              ]}
-              onPress={() => setViewMode('calendar')}
-            >
-              <Text style={[
-                styles.viewToggleText,
-                { color: colors.textMuted },
-                viewMode === 'calendar' && [styles.viewToggleTextActive, { color: colors.text }]
-              ]}>
-                📅 Calendar
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.viewToggleButton,
-                viewMode === 'history' && [styles.viewToggleButtonActive, { backgroundColor: colors.cardBackground }]
-              ]}
-              onPress={() => setViewMode('history')}
-            >
-              <Text style={[
-                styles.viewToggleText,
-                { color: colors.textMuted },
-                viewMode === 'history' && [styles.viewToggleTextActive, { color: colors.text }]
-              ]}>
-                📊 History
-              </Text>
-            </TouchableOpacity>
-          </View>
-
           {/* Development Helper - Clear All Data */}
           {__DEV__ && (
             <View style={[styles.devHelperContainer, { backgroundColor: colors.surface }]}>
@@ -649,7 +755,7 @@ export default function MoodCalendar() {
                 disabled={isLoading}
               >
                 <Text style={styles.devHelperButtonText}>
-                  {isLoading ? '⏳ Generating Data...' : '🎲 Generate 6-Month Test Data'}
+                  {isLoading ? '⏳ Generating Data...' : '🎲 Generate Test Data (1-6 months)'}
                 </Text>
               </TouchableOpacity>
               
@@ -690,10 +796,13 @@ export default function MoodCalendar() {
               <>
                 {renderMonth(displayMonth)}
                 
+                {/* Current Month Bar Chart */}
+                {renderCurrentMonthBarChart()}
+                
                 {/* Mood Patterns Analysis */}
                 <View style={[styles.patternsContainer, { backgroundColor: colors.surface }]}>
                   <Text style={[styles.patternsTitle, { color: colors.text }]}>
-                    {displayMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} Patterns
+                    Mood Patterns
                   </Text>
                   {renderMoodPatterns()}
                 </View>
@@ -750,13 +859,6 @@ export default function MoodCalendar() {
                     </View>
                   )}
                 </View>
-                
-                <TouchableOpacity
-                  style={[styles.modalCloseButton, { backgroundColor: selectedMoodData?.moodColor }]}
-                  onPress={() => setModalVisible(false)}
-                >
-                  <Text style={styles.modalCloseText}>Close</Text>
-                </TouchableOpacity>
               </Pressable>
             </Pressable>
           </Modal>
@@ -1012,39 +1114,6 @@ const styles = StyleSheet.create({
   modalCloseText: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: '600',
-  },
-  // View Toggle Styles
-  viewToggleContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#f1f5f9',
-    borderRadius: 12,
-    padding: 4,
-    margin: 20,
-    marginBottom: 10,
-  },
-  viewToggleButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  viewToggleButtonActive: {
-    backgroundColor: '#ffffff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  viewToggleText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#64748b',
-  },
-  viewToggleTextActive: {
-    color: '#1e293b',
     fontWeight: '600',
   },
   // History View Styles
