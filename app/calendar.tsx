@@ -9,10 +9,15 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { getMoodHistory, MoodEntry } from './storage';
+import { useTheme } from './ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function MoodCalendar() {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [moodHistory, setMoodHistory] = useState<Record<string, MoodEntry>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -146,14 +151,14 @@ export default function MoodCalendar() {
     return (
       <View style={styles.monthContainer} key={`${monthDate.getFullYear()}-${monthDate.getMonth()}`}>
         {/* Month Title */}
-        <Text style={styles.monthTitle}>
+        <Text style={[styles.monthTitle, { color: colors.text }]}>
           {monthNames[monthDate.getMonth()]} {monthDate.getFullYear()}
         </Text>
 
         {/* Day Headers */}
         <View style={styles.dayHeaders}>
           {dayNames.map((day) => (
-            <Text key={day} style={styles.dayHeader}>{day}</Text>
+            <Text key={day} style={[styles.dayHeader, { color: colors.textMuted }]}>{day}</Text>
           ))}
         </View>
 
@@ -173,7 +178,11 @@ export default function MoodCalendar() {
                 key={dateKey}
                 style={[
                   styles.dayCell,
-                  isToday && styles.today,
+                  { backgroundColor: colors.surface },
+                  isToday && [styles.today, { 
+                    backgroundColor: colors.surface, 
+                    borderColor: '#0284c7' 
+                  }],
                   moodEntry && { 
                     backgroundColor: getMoodColor(moodEntry.mood), 
                     borderWidth: 1,
@@ -210,6 +219,7 @@ export default function MoodCalendar() {
               >
                 <Text style={[
                   styles.dayNumber, 
+                  { color: colors.text },
                   isToday && styles.todayText,
                   moodEntry && styles.moodDayText
                 ]}>
@@ -227,7 +237,7 @@ export default function MoodCalendar() {
   const renderMoodPatterns = useCallback(() => {
     if (Object.keys(moodHistory).length === 0) {
       return (
-        <Text style={styles.noDataText}>
+        <Text style={[styles.noDataText, { color: colors.textMuted }]}>
           Track more moods to see patterns and insights!
         </Text>
       );
@@ -298,19 +308,20 @@ export default function MoodCalendar() {
 
     return patterns.map((pattern, index) => {
       const getPatternStyle = (type: string) => {
+        const baseStyle = { backgroundColor: colors.cardBackground };
         switch (type) {
-          case 'positive': return styles.pattern_positive;
-          case 'warning': return styles.pattern_warning;
-          case 'neutral': return styles.pattern_neutral;
-          case 'support': return styles.pattern_support;
-          default: return styles.pattern_neutral;
+          case 'positive': return [baseStyle, styles.pattern_positive];
+          case 'warning': return [baseStyle, styles.pattern_warning];
+          case 'neutral': return [baseStyle, styles.pattern_neutral];
+          case 'support': return [baseStyle, styles.pattern_support];
+          default: return [baseStyle, styles.pattern_neutral];
         }
       };
 
       return (
         <View key={index} style={[styles.patternItem, getPatternStyle(pattern.type)]}>
           <Text style={styles.patternIcon}>{pattern.icon}</Text>
-          <Text style={styles.patternText}>{pattern.text}</Text>
+          <Text style={[styles.patternText, { color: colors.text }]}>{pattern.text}</Text>
         </View>
       );
     });
@@ -334,8 +345,8 @@ export default function MoodCalendar() {
     if (entries.length === 0) {
       return (
         <View style={styles.emptyHistoryContainer}>
-          <Text style={styles.emptyHistoryText}>No mood history yet!</Text>
-          <Text style={styles.emptyHistorySubtext}>Start tracking your moods to see your history here.</Text>
+          <Text style={[styles.emptyHistoryText, { color: colors.textMuted }]}>No mood history yet!</Text>
+          <Text style={[styles.emptyHistorySubtext, { color: colors.textMuted }]}>Start tracking your moods to see your history here.</Text>
         </View>
       );
     }
@@ -357,7 +368,7 @@ export default function MoodCalendar() {
           return (
             <TouchableOpacity
               key={entry.dateKey}
-              style={styles.historyItem}
+              style={[styles.historyItem, { backgroundColor: colors.surface }]}
               onPress={() => {
                 setSelectedMoodData({
                   date: entry.displayDate,
@@ -371,7 +382,7 @@ export default function MoodCalendar() {
             >
               <View style={styles.historyItemHeader}>
                 <View style={styles.historyDateContainer}>
-                  <Text style={styles.historyDate}>{entry.displayDate}</Text>
+                  <Text style={[styles.historyDate, { color: colors.text }]}>{entry.displayDate}</Text>
                 </View>
                 <View style={styles.historyMoodContainer}>
                   <View style={[styles.historyMoodDot, { backgroundColor: moodColor }]} />
@@ -380,8 +391,8 @@ export default function MoodCalendar() {
               </View>
               
               {entry.journal && entry.journal.trim() && (
-                <View style={styles.historyJournalContainer}>
-                  <Text style={styles.historyJournalText} numberOfLines={2}>
+                <View style={[styles.historyJournalContainer, { borderTopColor: colors.border }]}>
+                  <Text style={[styles.historyJournalText, { color: colors.textMuted }]} numberOfLines={2}>
                     "{entry.journal}"
                   </Text>
                 </View>
@@ -394,26 +405,33 @@ export default function MoodCalendar() {
   }, [moodHistory, getMoodColor]);
 
   return (
-    <View style={styles.container}>
+    <View style={[
+      styles.container, 
+      { 
+        backgroundColor: colors.background,
+        paddingBottom: Platform.OS === 'android' ? insets.bottom + 10 : 0
+      }
+    ]}>
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#0284c7" />
-          <Text style={styles.loadingText}>Loading your mood history...</Text>
+          <Text style={[styles.loadingText, { color: colors.textMuted }]}>Loading your mood history...</Text>
         </View>
       ) : (
         <>
           {/* View Mode Toggle */}
-          <View style={styles.viewToggleContainer}>
+          <View style={[styles.viewToggleContainer, { backgroundColor: colors.surface }]}>
             <TouchableOpacity
               style={[
                 styles.viewToggleButton,
-                viewMode === 'calendar' && styles.viewToggleButtonActive
+                viewMode === 'calendar' && [styles.viewToggleButtonActive, { backgroundColor: colors.cardBackground }]
               ]}
               onPress={() => setViewMode('calendar')}
             >
               <Text style={[
                 styles.viewToggleText,
-                viewMode === 'calendar' && styles.viewToggleTextActive
+                { color: colors.textMuted },
+                viewMode === 'calendar' && [styles.viewToggleTextActive, { color: colors.text }]
               ]}>
                 📅 Calendar
               </Text>
@@ -421,13 +439,14 @@ export default function MoodCalendar() {
             <TouchableOpacity
               style={[
                 styles.viewToggleButton,
-                viewMode === 'history' && styles.viewToggleButtonActive
+                viewMode === 'history' && [styles.viewToggleButtonActive, { backgroundColor: colors.cardBackground }]
               ]}
               onPress={() => setViewMode('history')}
             >
               <Text style={[
                 styles.viewToggleText,
-                viewMode === 'history' && styles.viewToggleTextActive
+                { color: colors.textMuted },
+                viewMode === 'history' && [styles.viewToggleTextActive, { color: colors.text }]
               ]}>
                 📊 History
               </Text>
@@ -444,8 +463,8 @@ export default function MoodCalendar() {
                 {renderMonth(currentMonth)}
                 
                 {/* Mood Patterns Analysis */}
-                <View style={styles.patternsContainer}>
-                  <Text style={styles.patternsTitle}>Monthly Patterns</Text>
+                <View style={[styles.patternsContainer, { backgroundColor: colors.surface }]}>
+                  <Text style={[styles.patternsTitle, { color: colors.text }]}>Monthly Patterns</Text>
                   {renderMoodPatterns()}
                 </View>
               </>
@@ -453,8 +472,8 @@ export default function MoodCalendar() {
               <>
                 {/* Mood History List */}
                 <View style={styles.historyTitle}>
-                  <Text style={styles.historyTitleText}>Your Mood Journey</Text>
-                  <Text style={styles.historySubtitle}>Tap any entry to see details</Text>
+                  <Text style={[styles.historyTitleText, { color: colors.text }]}>Your Mood Journey</Text>
+                  <Text style={[styles.historySubtitle, { color: colors.textMuted }]}>Tap any entry to see details</Text>
                 </View>
                 {renderMoodHistory()}
               </>
@@ -472,7 +491,10 @@ export default function MoodCalendar() {
               style={styles.modalOverlay}
               onPress={() => setModalVisible(false)}
             >
-              <Pressable style={styles.modalContainer} onPress={(e) => e.stopPropagation()}>
+              <Pressable 
+                style={[styles.modalContainer, { backgroundColor: colors.surface }]} 
+                onPress={(e) => e.stopPropagation()}
+              >
                 {/* Colored Header Bar */}
                 <View style={[styles.modalHeader, { backgroundColor: selectedMoodData?.moodColor }]}>
                   <Text style={styles.modalTitle}>{selectedMoodData?.date}</Text>
@@ -481,17 +503,21 @@ export default function MoodCalendar() {
                 <View style={styles.modalContent}>
                   {/* Mood Section with Color Accent */}
                   <View style={styles.modalSection}>
-                    <Text style={styles.modalMoodLabel}>Mood:</Text>
+                    <Text style={[styles.modalMoodLabel, { color: colors.text }]}>Mood:</Text>
                     <View style={styles.moodValueContainer}>
                       <View style={[styles.moodColorDot, { backgroundColor: selectedMoodData?.moodColor }]} />
-                      <Text style={styles.modalMoodValue}>{selectedMoodData?.mood}</Text>
+                      <Text style={[styles.modalMoodValue, { color: colors.text }]}>{selectedMoodData?.mood}</Text>
                     </View>
                   </View>
                   
                   {selectedMoodData?.journal && selectedMoodData.journal.trim() && (
                     <View style={styles.modalSection}>
-                      <Text style={styles.modalJournalLabel}>Feeling:</Text>
-                      <Text style={styles.modalJournalValue}>{selectedMoodData.journal}</Text>
+                      <Text style={[styles.modalJournalLabel, { color: colors.text }]}>Feeling:</Text>
+                      <Text style={[styles.modalJournalValue, { 
+                        color: colors.textSecondary, 
+                        backgroundColor: colors.background,
+                        borderLeftColor: colors.border
+                      }]}>{selectedMoodData.journal}</Text>
                     </View>
                   )}
                 </View>
@@ -515,13 +541,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
-    paddingBottom: 80, // Space above Android navigation UI
+    // Padding will be dynamic via inline styles
   },
   scrollContainer: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 120, // Extra space above Android navigation UI
+    paddingBottom: 20, // Minimal padding for content spacing
   },
   monthContainer: {
     paddingHorizontal: 20,
@@ -537,9 +563,11 @@ const styles = StyleSheet.create({
   dayHeaders: {
     flexDirection: 'row',
     marginBottom: 10,
+    justifyContent: 'space-around', // Match calendar grid distribution
+    paddingHorizontal: 10,
   },
   dayHeader: {
-    width: '13.8%', // Match day cells to maintain alignment
+    width: 40,     // Match day cell width
     textAlign: 'center',
     fontSize: 14,
     fontWeight: '600',
@@ -549,19 +577,22 @@ const styles = StyleSheet.create({
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-around', // Distribute days evenly
+    paddingHorizontal: 10,
   },
   emptyDay: {
-    width: '13.8%', // Slightly less than 14.28% to prevent overlap
-    height: 45,     // Same as width to make perfect circles
+    width: 40,     // Fixed pixel size for consistency
+    height: 40,    // Same as width to make perfect circles
+    margin: 2,     // Small margin for spacing
   },
   dayCell: {
-    width: '13.8%', // Slightly less than 14.28% to prevent overlap
-    height: 45,     // Same as width for circular shape
+    width: 40,     // Fixed pixel size for perfect circles
+    height: 40,    // Same as width for circular shape
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    marginBottom: 8, // More space between rows for circular shape
-    borderRadius: 22.5, // Half of width/height for perfect circle
+    margin: 2,     // Consistent spacing around each cell
+    borderRadius: 20, // Half of width/height for perfect circle
     position: 'relative',
   },
   today: {

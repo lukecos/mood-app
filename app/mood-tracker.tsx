@@ -13,8 +13,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  ScrollView,
 } from 'react-native';
 import { saveMoodEntry as saveToStorage, getMoodEntryForDate } from './storage';
+import { useTheme } from './ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { height: screenHeight } = Dimensions.get('window');
 
@@ -23,7 +26,10 @@ interface MoodTrackerProps {
 }
 
 export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProps) {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const [selectedMood, setSelectedMood] = useState<number | null>(null);
+  const [isEditingMood, setIsEditingMood] = useState<boolean>(false);
   const [moodValue, setMoodValue] = useState<number>(3); // Default to neutral (middle)
   const [journalText, setJournalText] = useState('');
   const [wordCount, setWordCount] = useState(0);
@@ -31,12 +37,16 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
   const [currentAdviceIndex, setCurrentAdviceIndex] = useState(0);
   const [todaysMoodEntry, setTodaysMoodEntry] = useState<any>(null);
   const [hasEntryToday, setHasEntryToday] = useState<boolean>(false);
-  const [containerPaddingBottom, setContainerPaddingBottom] = useState(140); // Dynamic padding
+  const [containerPaddingBottom, setContainerPaddingBottom] = useState(100); // Dynamic padding
   const [tempSelectedMood, setTempSelectedMood] = useState<number | null>(3); // Default to Neutral
+  const [isTextInputFocused, setIsTextInputFocused] = useState<boolean>(false);
 
   // Animation values
   const moodSelectorPosition = useRef(new Animated.Value(0)).current;
   const contentOpacity = useRef(new Animated.Value(0)).current;
+  const textInputPosition = useRef(new Animated.Value(0)).current; // For moving text input container only
+  const moodSpherePosition = useRef(new Animated.Value(0)).current; // For moving mood sphere up when keyboard appears
+  const isTextInputFocusedRef = useRef(false); // Ref to track focus state for keyboard listener
   const orbScale = useRef(new Animated.Value(1)).current;
   const orbRotation = useRef(new Animated.Value(0)).current;
   const sliderPosition = useRef(new Animated.Value(0.5)).current; // 0.5 for middle (neutral)
@@ -148,12 +158,21 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
       if (entry) {
         setTodaysMoodEntry(entry);
         setHasEntryToday(true);
+        // Set the previous mood as the temp selected mood for editing
+        setTempSelectedMood(entry.mood);
+        setMoodValue(entry.mood);
       } else {
         setHasEntryToday(false);
+        // Ensure default mood is selected (Fine/3)
+        setTempSelectedMood(3);
+        setMoodValue(3);
       }
     } catch (error) {
       console.error('Error checking today\'s mood:', error);
       setHasEntryToday(false);
+      // Ensure default mood is selected (Fine/3)
+      setTempSelectedMood(3);
+      setMoodValue(3);
     }
   };
 
@@ -162,16 +181,53 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
     checkTodaysMood();
   }, []);
 
-  // Keyboard event listeners to reset padding
+  // Keyboard event listeners - primary drivers for text input animation
   useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      console.log('Keyboard did show - animating text input and mood sphere up');
+      setIsTextInputFocused(true);
+      isTextInputFocusedRef.current = true;
+      
+      // Animate both text input and mood sphere up
+      Animated.parallel([
+        Animated.timing(textInputPosition, {
+          toValue: -150, // Back to original distance for text input
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(moodSpherePosition, {
+          toValue: -60, // Move mood sphere up by 60px
+          duration: 300,
+          useNativeDriver: true,
+        })
+      ]).start();
+    });
+
     const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      setContainerPaddingBottom(140); // Reset to original padding
+      console.log('Keyboard did hide - animating text input and mood sphere down');
+      setIsTextInputFocused(false);
+      isTextInputFocusedRef.current = false;
+      
+      // Animate both back to original positions
+      Animated.parallel([
+        Animated.timing(textInputPosition, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(moodSpherePosition, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        })
+      ]).start();
     });
 
     return () => {
+      keyboardDidShowListener?.remove();
       keyboardDidHideListener?.remove();
     };
-  }, []);
+  }, []); // No dependencies - listeners handle all keyboard events
 
   const getMoodLabel = (value: number) => {
     const config = moodConfigs[Math.round(value) as keyof typeof moodConfigs];
@@ -208,6 +264,22 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
       setJournalText(truncatedText);
       setWordCount(WORD_LIMIT);
     }
+  };
+
+  // Handle text input focus - just update state, let keyboard events handle animation
+  const handleTextInputFocus = () => {
+    console.log('Text input focused');
+    setIsTextInputFocused(true);
+    isTextInputFocusedRef.current = true;
+    // Animation will be handled by keyboardDidShow listener
+  };
+
+  // Handle text input blur - just update state, let keyboard events handle animation
+  const handleTextInputBlur = () => {
+    console.log('Text input blurred');
+    setIsTextInputFocused(false);
+    isTextInputFocusedRef.current = false;
+    // Animation will be handled by keyboardDidHide listener
   };
 
   // Get current advice for selected mood
@@ -287,9 +359,12 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
   ).current;
 
   const handleMoodSelection = () => {
-    setSelectedMood(Math.round(moodValue));
+    // Ensure mood is set if not already
+    if (!selectedMood && tempSelectedMood) {
+      setSelectedMood(tempSelectedMood);
+    }
     
-    // Animate mood selector to top and show content
+    // Always animate to show content, regardless of current state
     Animated.parallel([
       Animated.timing(moodSelectorPosition, {
         toValue: 1,
@@ -346,9 +421,12 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
 
   const resetMoodSelection = () => {
     setSelectedMood(null);
+    setIsEditingMood(false);
+    setTempSelectedMood(3); // Reset to default Fine mood
     setJournalText('');
     setWordCount(0);
     setCurrentAdviceIndex(0);
+    setMoodValue(3); // Reset to neutral
     
     // Animate back to center
     Animated.parallel([
@@ -361,6 +439,40 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
         toValue: 0,
         duration: 400,
         useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  // Go back to mood selection - same interface as initial selection
+  const goBackToMoodSelection = () => {
+    // Reset to initial selection state - no selected mood, no editing mode
+    setSelectedMood(null);
+    setIsEditingMood(false);
+    
+    // Keep the current mood as temp selected for highlighting
+    setTempSelectedMood(selectedMood);
+    
+    // Clear journal and advice
+    setJournalText('');
+    setWordCount(0);
+    setCurrentAdviceIndex(0);
+    
+    // Animate back to show the full mood selection interface
+    Animated.parallel([
+      Animated.timing(moodSelectorPosition, {
+        toValue: 0, // Center the mood selector
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(contentOpacity, {
+        toValue: 0, // Hide journal/advice content
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.timing(sliderPosition, {
+        toValue: selectedMood ? (selectedMood - 1) / 4 : 0.5, // Position slider to current mood
+        duration: 600,
+        useNativeDriver: false,
       }),
     ]).start();
   };
@@ -424,16 +536,21 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
   // Calculate the translateY value for vertical centering animation
   const translateY = moodSelectorPosition.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 0], // Keep sphere in the same position
+    outputRange: [0, -100], // Move sphere up when mood is selected to make room for content
   });
 
   return (
     <KeyboardAvoidingView 
       style={styles.keyboardContainer}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+      enabled={true}
     >
-      <View style={[styles.container, { paddingBottom: containerPaddingBottom }]}>
+      <View style={[styles.container, { 
+        paddingBottom: 50, // Fixed padding to prevent smooshing
+        paddingTop: insets.top + 20, // Proper top spacing for header
+        backgroundColor: colors.background 
+      }]}>
         {hasEntryToday ? (
           // Show today's mood summary
           <Animated.View 
@@ -445,7 +562,7 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
             ]}
           >
             <View style={styles.titleContainer}>
-              <Text style={styles.summaryTitle}>Today's Mood Entry</Text>
+              <Text style={[styles.summaryTitle, { color: colors.text }]}>Today's Mood Entry</Text>
             </View>
           
           <TouchableOpacity
@@ -467,14 +584,14 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
             </Animated.View>
           </TouchableOpacity>
           
-          <Text style={styles.moodLabel}>
+          <Text style={[styles.moodLabel, { color: colors.text }]}>
             {moodConfigs[todaysMoodEntry?.mood as keyof typeof moodConfigs]?.label}
           </Text>
           
           {todaysMoodEntry?.journal && (
-            <View style={styles.journalPreview}>
-              <Text style={styles.journalLabel}>Your thoughts:</Text>
-              <Text style={styles.journalText}>{todaysMoodEntry.journal}</Text>
+            <View style={[styles.journalPreview, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.journalLabel, { color: colors.text }]}>Your thoughts:</Text>
+              <Text style={[styles.journalText, { color: colors.textSecondary }]}>{todaysMoodEntry.journal}</Text>
             </View>
           )}
         </Animated.View>
@@ -492,52 +609,61 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
         >
           <View style={styles.titleContainer}>
             {!selectedMood ? (
-              <Text style={styles.title}>How are you feeling today?</Text>
+              <Text style={[styles.title, { color: colors.text }]}>How are you feeling today?</Text>
             ) : (
               <View style={styles.titleSpacer} />
             )}
           </View>
           
-          {/* Mood Orb */}
-          <TouchableOpacity
-            onPress={selectedMood ? resetMoodSelection : undefined}
-            activeOpacity={1}
+          {/* Mood Orb - Animated container for keyboard movement */}
+          <Animated.View
+            style={{
+              transform: [{ translateY: moodSpherePosition }],
+            }}
           >
-            <Animated.View
-              style={[
-                styles.moodOrb,
-                {
-                  backgroundColor: selectedMood ? getOrbColor(selectedMood) : (tempSelectedMood ? getOrbColor(tempSelectedMood) : getOrbColor(moodValue)),
-                  transform: [
-                    { scale: orbScale },
-                    { rotate: orbRotation.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: ['0deg', '360deg'],
-                    })},
-                  ],
-                },
-              ]}
+            <TouchableOpacity
+              onPress={selectedMood ? goBackToMoodSelection : undefined}
+              activeOpacity={1}
             >
-              <View style={styles.orbInner}>
-                <View style={styles.orbHighlight} />
-              </View>
-            </Animated.View>
-          </TouchableOpacity>
+              <Animated.View
+                style={[
+                  styles.moodOrb,
+                  {
+                    backgroundColor: selectedMood ? getOrbColor(selectedMood) : (tempSelectedMood ? getOrbColor(tempSelectedMood) : getOrbColor(moodValue)),
+                    transform: [
+                      { scale: orbScale },
+                      { rotate: orbRotation.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['0deg', '360deg'],
+                      })},
+                    ],
+                  },
+                ]}
+              >
+                <View style={styles.orbInner}>
+                  <View style={styles.orbHighlight} />
+                </View>
+              </Animated.View>
+            </TouchableOpacity>
 
-          {/* Mood Label */}
-          <Text style={styles.moodLabel}>
-            {selectedMood ? getMoodLabel(selectedMood) : (tempSelectedMood ? getMoodLabel(tempSelectedMood) : "Select your mood")}
-          </Text>
+            {/* Mood Label */}
+            <Text style={[styles.moodLabel, { color: colors.text }]}>
+              {selectedMood ? getMoodLabel(selectedMood) : (tempSelectedMood ? getMoodLabel(tempSelectedMood) : "Select your mood")}
+            </Text>
+          </Animated.View>
 
-          {/* 5 Mood Options - Only show when no mood selected */}
-          {!selectedMood && (
+          {/* 5 Mood Options - Show when no mood selected OR when editing existing mood */}
+          {(!selectedMood || isEditingMood) && (
             <View style={styles.moodOptionsContainer}>
-              <Text style={styles.moodOptionsTitle}>How are you feeling?</Text>
+              <Text style={[styles.moodOptionsTitle, { color: colors.text }]}>How are you feeling?</Text>
               <View style={styles.moodOptionsGrid}>
                 {Object.entries(moodConfigs).map(([value, config]) => (
                   <TouchableOpacity
                     key={value}
-                    style={styles.moodOption}
+                    style={[
+                      styles.moodOption,
+                      selectedMood === parseInt(value) && styles.selectedMoodOption // Highlight current mood
+                    ]}
                     activeOpacity={1}
                     onPress={() => {
                       const moodNum = parseInt(value);
@@ -554,7 +680,7 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
                         <View style={styles.moodOptionOrbHighlight} />
                       </View>
                     </View>
-                    <Text style={styles.moodOptionLabel}>{config.label}</Text>
+                    <Text style={[styles.moodOptionLabel, { color: colors.text }]}>{config.label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -565,9 +691,27 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
                   style={[styles.confirmButton, { backgroundColor: getOrbColor(tempSelectedMood) }]}
                   activeOpacity={0.8}
                   onPress={() => {
-                    setSelectedMood(tempSelectedMood);
+                    const moodToSelect = tempSelectedMood;
+                    setSelectedMood(moodToSelect);
+                    setMoodValue(moodToSelect);
                     setTempSelectedMood(null);
-                    handleMoodSelection();
+                    setIsEditingMood(false); // Exit editing mode
+                    
+                    // Force animation to show content
+                    setTimeout(() => {
+                      Animated.parallel([
+                        Animated.timing(moodSelectorPosition, {
+                          toValue: 1,
+                          duration: 600,
+                          useNativeDriver: true,
+                        }),
+                        Animated.timing(contentOpacity, {
+                          toValue: 1,
+                          duration: 800,
+                          useNativeDriver: true,
+                        }),
+                      ]).start();
+                    }, 100);
                   }}
                 >
                   <Text style={styles.confirmButtonText}>Confirm Mood</Text>
@@ -582,43 +726,65 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
           style={[
             styles.contentContainer,
             {
-              opacity: contentOpacity,
+              opacity: (selectedMood && !isEditingMood) ? 1 : contentOpacity,
             },
           ]}
         >
-          {selectedMood && (
+          {selectedMood && !isEditingMood && (
             <>
-              {/* Journal Section */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>{getJournalPrompt(selectedMood)}</Text>
-                <TextInput
-                  style={styles.journalInput}
-                  multiline
-                  placeholder="Write about your feelings..."
-                  value={journalText}
-                  onChangeText={handleJournalTextChange}
-                />
-                <View style={styles.wordCountContainer}>
-                  <Text style={[
-                    styles.wordCountText,
-                    wordCount > WORD_LIMIT * 0.9 && styles.wordCountWarning,
-                    wordCount === WORD_LIMIT && styles.wordCountLimit
-                  ]}>
-                    {wordCount}/{WORD_LIMIT} words
-                  </Text>
+              {/* Journal Section - Animated container for keyboard movement */}
+              <Animated.View
+                style={{
+                  transform: [{ translateY: textInputPosition }],
+                }}
+              >
+                <View style={[styles.section, { backgroundColor: colors.surface }]}>
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>{getJournalPrompt(selectedMood)}</Text>
+                  <TextInput
+                    style={[styles.journalInput, { 
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                      color: colors.text
+                    }]}
+                    multiline
+                    placeholder="Write about your feelings..."
+                    placeholderTextColor={colors.textMuted}
+                    value={journalText}
+                    onChangeText={handleJournalTextChange}
+                    onFocus={handleTextInputFocus}
+                    onBlur={handleTextInputBlur}
+                    blurOnSubmit={true}
+                    returnKeyType="done"
+                  />
+                  <View style={styles.wordCountContainer}>
+                    <Text style={[
+                      styles.wordCountText,
+                      { color: colors.textMuted },
+                      wordCount > WORD_LIMIT * 0.9 && [styles.wordCountWarning, { color: colors.warning }],
+                      wordCount === WORD_LIMIT && [styles.wordCountLimit, { color: colors.error }]
+                    ]}>
+                      {wordCount}/{WORD_LIMIT} words
+                    </Text>
+                  </View>
                 </View>
-              </View>
+              </Animated.View>
 
               {/* Personalized Advice */}
-              <TouchableOpacity onPress={getNextAdvice} style={styles.adviceContainer}>
-                <Animated.Text style={[styles.adviceText, { opacity: adviceOpacity }]}>
+              <TouchableOpacity onPress={getNextAdvice} style={[styles.adviceContainer, { backgroundColor: colors.surface }]}>
+                <Animated.Text style={[styles.adviceText, { opacity: adviceOpacity, color: colors.text }]}>
                   {getCurrentAdvice()}
                 </Animated.Text>
-                <Text style={styles.tapForMoreText}>Tap for more advice</Text>
+                <Text style={[styles.tapForMoreText, { color: colors.textMuted }]}>Tap for more advice</Text>
               </TouchableOpacity>
 
               {/* Save Button */}
-              <TouchableOpacity style={styles.saveButton} onPress={saveMoodEntry}>
+              <TouchableOpacity 
+                style={[
+                  styles.saveButton, 
+                  { marginBottom: Platform.OS === 'android' ? insets.bottom + 20 : 15 }
+                ]} 
+                onPress={saveMoodEntry}
+              >
                 <Text style={styles.saveButtonText}>Save Entry</Text>
               </TouchableOpacity>
             </>
@@ -637,23 +803,24 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start', // Changed from center to flex-start
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 160, // Much more top spacing to clear the header
+    paddingTop: 20, 
     // paddingBottom is now dynamic via state
   },
   moodSelectorContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 50, // Reduced from 100 to save space
   },
   titleContainer: {
-    height: 80,
+    height: 60, // Reduced from 80
     justifyContent: 'center',
     alignItems: 'center',
   },
   titleSpacer: {
-    height: 54, // Same height as title to maintain layout
+    height: 40, // Reduced from 54 to save space
   },
   title: {
     fontSize: 24,
@@ -783,14 +950,18 @@ const styles = StyleSheet.create({
   },
   // Content Styles
   contentContainer: {
-    marginTop: 40,
-    paddingBottom: 100, // Space for fixed Save Entry button
+    width: '100%',
+    paddingHorizontal: 20,
+    paddingTop: 0,
+    marginTop: -30, // Move content up to be closer to mood sphere and clear navigation UI
+    paddingBottom: 20, // Add bottom padding to ensure button clears navigation UI
+    flex: 1, // Allow content to fill available space
   },
   section: {
     backgroundColor: '#ffffff',
     borderRadius: 15,
-    padding: 20,
-    marginBottom: 15, // Reduced from 20 to tighten layout
+    padding: 15, // Reduced from 20
+    marginBottom: 10, // Reduced from 25 to save space
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -798,17 +969,17 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16, // Reduced from 18
     fontWeight: '600',
     color: '#1e293b',
-    marginBottom: 15,
+    marginBottom: 12, // Reduced from 15
   },
   journalInput: {
     borderWidth: 1,
     borderColor: '#e2e8f0',
     borderRadius: 10,
     padding: 15,
-    minHeight: 120,
+    minHeight: 80, // Reduced from 120 to save space
     textAlignVertical: 'top',
     fontSize: 16,
     color: '#1e293b',
@@ -818,17 +989,18 @@ const styles = StyleSheet.create({
   adviceContainer: {
     backgroundColor: '#f1f5f9',
     borderRadius: 12,
-    padding: 20,
+    padding: 15, // Reduced from 20
+    marginBottom: 15, // Reduced from 25
     borderLeftWidth: 4,
     borderLeftColor: '#0284c7',
-    minHeight: 100, // Fixed minimum height to prevent layout shifts
+    minHeight: 70, // Reduced from 100 to save space
     alignSelf: 'stretch', // Ensure container stretches to full width
   },
   adviceText: {
-    fontSize: 16,
+    fontSize: 14, // Reduced from 16
     color: '#1e293b',
-    lineHeight: 24,
-    marginBottom: 10,
+    lineHeight: 20, // Reduced from 24
+    marginBottom: 8, // Reduced from 10
     fontStyle: 'italic',
   },
   tapForMoreText: {
@@ -841,7 +1013,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0284c7',
     borderRadius: 25,
     paddingHorizontal: 30,
-    paddingVertical: 12,
+    paddingVertical: 10, // Reduced from 12
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -883,6 +1055,7 @@ const styles = StyleSheet.create({
   // Mood Options Styles
   moodOptionsContainer: {
     marginTop: 30,
+    marginBottom: 30, // Add bottom margin for better spacing
     width: '100%',
   },
   moodOptionsTitle: {

@@ -5,11 +5,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import MoodTrackerApp from './mood-tracker';
 import MoodCalendar from './calendar';
+import { ThemeProvider, useTheme } from './ThemeContext';
 
-export default function AppNavigation() {
+function AppNavigationContent() {
   const [currentScreen, setCurrentScreen] = useState<'tracker' | 'calendar'>('tracker');
   const [refreshKey, setRefreshKey] = useState(0);
   const insets = useSafeAreaInsets();
+  const { theme, toggleTheme, colors } = useTheme();
 
   const handleNavigateToCalendar = () => {
     setCurrentScreen('calendar');
@@ -17,31 +19,51 @@ export default function AppNavigation() {
   };
 
   const renderHeader = () => (
-    <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-      <Text style={styles.headerTitle}>
+    <View style={[styles.header, { 
+      paddingTop: insets.top + 10,
+      backgroundColor: colors.headerBackground,
+      borderBottomColor: colors.border
+    }]}>
+      <Text style={[styles.headerTitle, { color: colors.text }]}>
         {currentScreen === 'tracker' ? 'Mood Tracker' : 'Mood Calendar'}
       </Text>
-      <TouchableOpacity
-        onPress={() => {
-          if (currentScreen === 'tracker') {
-            handleNavigateToCalendar();
-          } else {
-            setCurrentScreen('tracker');
-          }
-        }}
-        style={styles.headerButton}
-      >
-        <Ionicons 
-          name={currentScreen === 'tracker' ? 'calendar-outline' : 'arrow-back-outline'} 
-          size={24} 
-          color="#374151" 
-        />
-      </TouchableOpacity>
+      
+      <View style={styles.headerButtons}>
+        {/* Dark mode toggle */}
+        <TouchableOpacity
+          onPress={toggleTheme}
+          style={[styles.headerButton, { backgroundColor: colors.buttonBackground }]}
+        >
+          <Ionicons 
+            name={theme === 'light' ? 'moon-outline' : 'sunny-outline'} 
+            size={22} 
+            color={colors.buttonText}
+          />
+        </TouchableOpacity>
+        
+        {/* Navigation button */}
+        <TouchableOpacity
+          onPress={() => {
+            if (currentScreen === 'tracker') {
+              handleNavigateToCalendar();
+            } else {
+              setCurrentScreen('tracker');
+            }
+          }}
+          style={[styles.headerButton, { backgroundColor: colors.buttonBackground }]}
+        >
+          <Ionicons 
+            name={currentScreen === 'tracker' ? 'calendar-outline' : 'arrow-back-outline'} 
+            size={24} 
+            color={colors.buttonText}
+          />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {renderHeader()}
       {currentScreen === 'tracker' ? (
         <MoodTrackerApp onNavigateToCalendar={handleNavigateToCalendar} />
@@ -49,6 +71,14 @@ export default function AppNavigation() {
         <MoodCalendar key={refreshKey} />
       )}
     </SafeAreaView>
+  );
+}
+
+export default function AppNavigation() {
+  return (
+    <ThemeProvider>
+      <AppNavigationContent />
+    </ThemeProvider>
   );
 }
 
@@ -71,6 +101,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#374151',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 8,
   },
   headerButton: {
     padding: 8,
