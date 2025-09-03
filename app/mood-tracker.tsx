@@ -32,8 +32,8 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
   const [isEditingMood, setIsEditingMood] = useState<boolean>(false);
   const [moodValue, setMoodValue] = useState<number>(3); // Default to neutral (middle)
   const [journalText, setJournalText] = useState('');
-  const [wordCount, setWordCount] = useState(0);
-  const WORD_LIMIT = 50;
+  const [characterCount, setCharacterCount] = useState(0);
+  const CHARACTER_LIMIT = 300;
   const [currentAdviceIndex, setCurrentAdviceIndex] = useState(0);
   const [todaysMoodEntry, setTodaysMoodEntry] = useState<any>(null);
   const [hasEntryToday, setHasEntryToday] = useState<boolean>(false);
@@ -249,20 +249,18 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
     return moodPrompts[mood as keyof typeof moodPrompts] || "Why do you feel this way?";
   };
 
-  // Word counting and limiting function
+  // Character counting and limiting function
   const handleJournalTextChange = (text: string) => {
-    const words = text.trim().split(/\s+/).filter(word => word.length > 0);
-    const currentWordCount = words.length;
+    const currentCharacterCount = text.length;
     
-    if (currentWordCount <= WORD_LIMIT) {
+    if (currentCharacterCount <= CHARACTER_LIMIT) {
       setJournalText(text);
-      setWordCount(currentWordCount);
+      setCharacterCount(currentCharacterCount);
     } else {
-      // If word limit exceeded, truncate to the word limit
-      const truncatedWords = words.slice(0, WORD_LIMIT);
-      const truncatedText = truncatedWords.join(' ');
+      // If character limit exceeded, truncate to the character limit
+      const truncatedText = text.slice(0, CHARACTER_LIMIT);
       setJournalText(truncatedText);
-      setWordCount(WORD_LIMIT);
+      setCharacterCount(CHARACTER_LIMIT);
     }
   };
 
@@ -424,7 +422,7 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
     setIsEditingMood(false);
     setTempSelectedMood(3); // Reset to default Fine mood
     setJournalText('');
-    setWordCount(0);
+    setCharacterCount(0);
     setCurrentAdviceIndex(0);
     setMoodValue(3); // Reset to neutral
     
@@ -454,7 +452,7 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
     
     // Clear journal and advice
     setJournalText('');
-    setWordCount(0);
+    setCharacterCount(0);
     setCurrentAdviceIndex(0);
     
     // Animate back to show the full mood selection interface
@@ -483,22 +481,28 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
     const localDateKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     
     const entry = {
-      date: now.toISOString(), // Keep full timestamp for records
+      date: localDateKey, // Use local date key for storage
       mood: selectedMood!,
       journal: journalText,
       advice: getCurrentAdvice(),
     };
     
+    console.log('Saving mood entry:', {
+      date: localDateKey,
+      mood: selectedMood,
+      journalLength: journalText.length,
+      advice: getCurrentAdvice()
+    });
+    
     try {
-      // Override the date key to use local date
-      const entryWithLocalDate = { ...entry, date: localDateKey };
-      await saveToStorage(entryWithLocalDate);
+      await saveToStorage(entry);
+      console.log('Mood entry saved successfully for date:', localDateKey);
       Alert.alert('Success', 'Mood entry saved!', [
         { text: 'OK', onPress: () => {
           // Reset form
           setSelectedMood(null);
           setJournalText('');
-          setWordCount(0);
+          setCharacterCount(0);
           setCurrentAdviceIndex(0);
           
           // Reset animations
@@ -551,6 +555,7 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
         paddingTop: insets.top + 20, // Proper top spacing for header
         backgroundColor: colors.background 
       }]}>
+        
         {hasEntryToday ? (
           // Show today's mood summary
           <Animated.View 
@@ -562,7 +567,7 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
             ]}
           >
             <View style={styles.titleContainer}>
-              <Text style={[styles.summaryTitle, { color: colors.text }]}>Today's Mood Entry</Text>
+              <Text style={[styles.summaryTitle, { color: colors.text }]}>Today's Mood</Text>
             </View>
           
           <TouchableOpacity
@@ -655,7 +660,6 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
           {/* 5 Mood Options - Show when no mood selected OR when editing existing mood */}
           {(!selectedMood || isEditingMood) && (
             <View style={styles.moodOptionsContainer}>
-              <Text style={[styles.moodOptionsTitle, { color: colors.text }]}>How are you feeling?</Text>
               <View style={styles.moodOptionsGrid}>
                 {Object.entries(moodConfigs).map(([value, config]) => (
                   <TouchableOpacity
@@ -740,30 +744,45 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
               >
                 <View style={[styles.section, { backgroundColor: colors.surface }]}>
                   <Text style={[styles.sectionTitle, { color: colors.text }]}>{getJournalPrompt(selectedMood)}</Text>
-                  <TextInput
-                    style={[styles.journalInput, { 
+                  <ScrollView 
+                    style={[styles.journalInputContainer, { 
                       backgroundColor: colors.surface,
                       borderColor: colors.border,
-                      color: colors.text
                     }]}
-                    multiline
-                    placeholder="Write about your feelings..."
-                    placeholderTextColor={colors.textMuted}
-                    value={journalText}
-                    onChangeText={handleJournalTextChange}
-                    onFocus={handleTextInputFocus}
-                    onBlur={handleTextInputBlur}
-                    blurOnSubmit={true}
-                    returnKeyType="done"
-                  />
+                    contentContainerStyle={{ flexGrow: 1 }}
+                    nestedScrollEnabled={true}
+                    keyboardShouldPersistTaps="handled"
+                  >
+                    <TextInput
+                      style={[styles.journalInputText, { 
+                        backgroundColor: colors.surface,
+                        color: colors.text
+                      }]}
+                      multiline
+                      textAlignVertical="top"
+                      placeholder="Write about your feelings..."
+                      placeholderTextColor={colors.textMuted}
+                      value={journalText}
+                      onChangeText={handleJournalTextChange}
+                      onFocus={handleTextInputFocus}
+                      onBlur={handleTextInputBlur}
+                      blurOnSubmit={true}
+                      returnKeyType="done"
+                      scrollEnabled={false}
+                      editable={true}
+                      selectTextOnFocus={false}
+                      caretHidden={false}
+                      contextMenuHidden={false}
+                    />
+                  </ScrollView>
                   <View style={styles.wordCountContainer}>
                     <Text style={[
                       styles.wordCountText,
                       { color: colors.textMuted },
-                      wordCount > WORD_LIMIT * 0.9 && [styles.wordCountWarning, { color: colors.warning }],
-                      wordCount === WORD_LIMIT && [styles.wordCountLimit, { color: colors.error }]
+                      characterCount > CHARACTER_LIMIT * 0.9 && [styles.wordCountWarning, { color: colors.warning }],
+                      characterCount === CHARACTER_LIMIT && [styles.wordCountLimit, { color: colors.error }]
                     ]}>
-                      {wordCount}/{WORD_LIMIT} words
+                      {characterCount}/{CHARACTER_LIMIT} characters
                     </Text>
                   </View>
                 </View>
@@ -979,11 +998,29 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
     borderRadius: 10,
     padding: 15,
-    minHeight: 80, // Reduced from 120 to save space
+    maxHeight: 78, // Maximum height for 2 lines, won't grow beyond this
+    minHeight: 78, // Minimum height to maintain consistent button position
     textAlignVertical: 'top',
     fontSize: 16,
     color: '#1e293b',
     backgroundColor: '#f8fafc',
+    overflow: 'hidden', // Ensures proper clipping for scrollable content
+  },
+  journalInputContainer: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 10,
+    maxHeight: 78,
+    minHeight: 78,
+    backgroundColor: '#f8fafc',
+  },
+  journalInputText: {
+    padding: 15,
+    fontSize: 16,
+    color: '#1e293b',
+    backgroundColor: 'transparent',
+    minHeight: 48, // Minimum height for text content (78 - 30 padding)
+    textAlignVertical: 'top',
   },
   // Advice Styles
   adviceContainer: {

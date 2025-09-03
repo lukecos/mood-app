@@ -33,6 +33,24 @@ export default function MoodCalendar() {
   
   // Just use current month for optimal performance
   const currentMonth = useMemo(() => new Date(), []);
+  
+  // Dynamic month display based on available data
+  const [displayMonth, setDisplayMonth] = useState<Date>(currentMonth);
+  
+  // Determine which month to display based on available data
+  const determineDisplayMonth = useCallback(() => {
+    console.log('Determining display month from mood history...');
+    
+    // Always use current month - no more test data month switching
+    console.log('Using current month for display');
+    return currentMonth;
+  }, [currentMonth]);
+
+  // Update display month when mood history changes
+  useEffect(() => {
+    const newDisplayMonth = determineDisplayMonth();
+    setDisplayMonth(newDisplayMonth);
+  }, [determineDisplayMonth]);
 
   // Memoized mood helper functions
   const getMoodColor = useCallback((mood: number) => {
@@ -70,45 +88,161 @@ export default function MoodCalendar() {
     }
   };
 
-  // Inject test data for development
-  const injectTestData = async () => {
-    const today = new Date();
-    const testEntries = [
-      // This month's test data
-      { date: new Date(today.getFullYear(), today.getMonth(), 1), mood: 4, journal: "Great start to the month! Feeling optimistic." },
-      { date: new Date(today.getFullYear(), today.getMonth(), 3), mood: 2, journal: "Monday blues hit hard today." },
-      { date: new Date(today.getFullYear(), today.getMonth(), 5), mood: 5, journal: "Amazing day! Everything went perfectly." },
-      { date: new Date(today.getFullYear(), today.getMonth(), 8), mood: 3, journal: "Just an okay day, nothing special." },
-      { date: new Date(today.getFullYear(), today.getMonth(), 12), mood: 1, journal: "Really struggling today. Work was overwhelming." },
-      { date: new Date(today.getFullYear(), today.getMonth(), 15), mood: 4, journal: "Good day with friends, feeling better!" },
-      { date: new Date(today.getFullYear(), today.getMonth(), 18), mood: 5, journal: "Celebrated a big achievement today!" },
-      { date: new Date(today.getFullYear(), today.getMonth(), 20), mood: 2, journal: "Feeling a bit down, need some self-care." },
-      { date: new Date(today.getFullYear(), today.getMonth(), 22), mood: 3, journal: "Neutral day, just going through the motions." },
-      { date: new Date(today.getFullYear(), today.getMonth(), 25), mood: 4, journal: "Had a lovely dinner with family." },
-      { date: new Date(today.getFullYear(), today.getMonth(), 28), mood: 5, journal: "Feeling grateful for all the good things in life!" },
-    ];
-
-    // Save test entries to storage
-    const { saveMoodEntry } = await import('./storage');
-    for (const entry of testEntries) {
-      const dateKey = `${entry.date.getFullYear()}-${String(entry.date.getMonth() + 1).padStart(2, '0')}-${String(entry.date.getDate()).padStart(2, '0')}`;
-      const moodEntry = {
-        date: dateKey,
-        mood: entry.mood,
-        journal: entry.journal,
-        advice: "Test advice entry"
-      };
-      await saveMoodEntry(moodEntry);
+  // Clean up any future data that shouldn't exist
+  const cleanFutureData = async () => {
+    try {
+      const history = await getMoodHistory();
+      const today = new Date();
+      const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      
+      let hasChanges = false;
+      const cleanedHistory: Record<string, MoodEntry> = {};
+      
+      for (const [dateKey, entry] of Object.entries(history)) {
+        // Keep entries that are today or in the past
+        if (dateKey <= todayKey) {
+          cleanedHistory[dateKey] = entry;
+        } else {
+          console.log(`🗑️ Removing future data for ${dateKey}`);
+          hasChanges = true;
+        }
+      }
+      
+      if (hasChanges) {
+        // Save cleaned data back to storage
+        const AsyncStorage = await import('@react-native-async-storage/async-storage');
+        await AsyncStorage.default.setItem('mood_entries', JSON.stringify(cleanedHistory));
+        console.log('✅ Future data cleaned up');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error cleaning future data:', error);
     }
+  };
 
-    // Reload data
-    loadMoodHistory();
+  // Inject test data for development - spread across last 6 months
+  const injectTestData = async () => {
+    console.log('🎲 Starting test data generation...');
+    
+    try {
+      setIsLoading(true); // Show loading state
+      console.log('⏳ Loading state set to true');
+      
+      const today = new Date();
+      console.log('📅 Today:', today.toISOString().split('T')[0]);
+      
+      const testEntries: { date: Date; mood: number; journal: string }[] = [];
+      
+      // Simplified journal entries
+      const journals = [
+        "Had a great day today!",
+        "Feeling pretty good overall.",
+        "Just an okay day.",
+        "Struggling a bit today.",
+        "Amazing day, everything went well!"
+      ];
+      
+      console.log('📝 Creating test entries...');
+      
+      // Generate entries for the last 6 months - simplified approach
+      for (let monthOffset = 0; monthOffset < 6; monthOffset++) {
+        console.log(`📆 Processing month offset: ${monthOffset}`);
+        
+        const targetMonth = new Date(today.getFullYear(), today.getMonth() - monthOffset, 1);
+        console.log(`🗓️ Target month: ${targetMonth.getFullYear()}-${targetMonth.getMonth() + 1}`);
+        
+        // Fixed number of entries per month to avoid infinite loops
+        const daysToAdd = [5, 10, 15, 20, 25]; // Fixed days per month
+        
+        for (const day of daysToAdd) {
+          const entryDate = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), day);
+          
+          // Only add if date is not in future
+          if (entryDate <= today) {
+            const mood = Math.floor(Math.random() * 5) + 1;
+            const journal = journals[mood - 1];
+            
+            testEntries.push({
+              date: entryDate,
+              mood: mood,
+              journal: journal
+            });
+            
+            console.log(`✅ Added entry for ${entryDate.toISOString().split('T')[0]} - mood: ${mood}`);
+          } else {
+            console.log(`⏭️ Skipped future date: ${entryDate.toISOString().split('T')[0]}`);
+          }
+        }
+      }
+      
+      console.log(`📊 Created ${testEntries.length} test entries total`);
+      
+      if (testEntries.length === 0) {
+        console.log('❌ No entries to save!');
+        return;
+      }
+      
+      // Create batch data for storage
+      console.log('💾 Preparing data for storage...');
+      const batchData: Record<string, any> = {};
+      
+      testEntries.forEach((entry, index) => {
+        const dateKey = entry.date.toISOString().split('T')[0]; // YYYY-MM-DD format
+        batchData[dateKey] = {
+          date: dateKey,
+          mood: entry.mood,
+          journal: entry.journal,
+          advice: "Test advice entry"
+        };
+        
+        if (index < 3) { // Log first 3 entries
+          console.log(`📝 Entry ${index + 1}: ${dateKey} - mood ${entry.mood}`);
+        }
+      });
+      
+      console.log('💽 Saving to AsyncStorage...');
+      
+      // Save to AsyncStorage
+      const AsyncStorage = await import('@react-native-async-storage/async-storage');
+      const existingData = await AsyncStorage.default.getItem('mood_entries');
+      const existingHistory = existingData ? JSON.parse(existingData) : {};
+      
+      console.log(`📚 Existing entries: ${Object.keys(existingHistory).length}`);
+      
+      // Merge with existing data
+      const finalData = { ...existingHistory, ...batchData };
+      
+      console.log(`📊 Final data will have ${Object.keys(finalData).length} entries`);
+      
+      // Single write operation
+      await AsyncStorage.default.setItem('mood_entries', JSON.stringify(finalData));
+      
+      console.log('✅ Data saved successfully!');
+      
+      // Reload data
+      console.log('🔄 Reloading mood history...');
+      await loadMoodHistory();
+      
+      console.log('🎉 Test data generation completed!');
+      
+    } catch (error) {
+      console.error('❌ Error in test data generation:', error);
+    } finally {
+      console.log('🏁 Cleaning up - setting loading to false');
+      setIsLoading(false);
+    }
   };
 
   // Refresh data when component mounts
   useEffect(() => {
-    // Inject test data first (comment out in production)
-    injectTestData();
+    const initializeCalendar = async () => {
+      // Clean up any future data first
+      await cleanFutureData();
+      // Then load the cleaned data
+      await loadMoodHistory();
+    };
+    
+    initializeCalendar();
   }, []);
 
   const formatDateKey = useCallback((date: Date) => {
@@ -234,21 +368,27 @@ export default function MoodCalendar() {
 
   // Analyze mood patterns for insights
   const renderMoodPatterns = useCallback(() => {
-    if (Object.keys(moodHistory).length === 0) {
+    // Filter mood history to only include current display month
+    const currentMonthKey = `${displayMonth.getFullYear()}-${String(displayMonth.getMonth() + 1).padStart(2, '0')}`;
+    const currentMonthEntries = Object.entries(moodHistory).filter(([dateKey]) => 
+      dateKey.startsWith(currentMonthKey)
+    );
+
+    if (currentMonthEntries.length === 0) {
       return (
         <Text style={[styles.noDataText, { color: colors.textMuted }]}>
-          Track more moods to see patterns and insights!
+          Track more moods this month to see patterns and insights!
         </Text>
       );
     }
 
     const patterns = [];
     
-    // Analyze by day of week
+    // Analyze by day of week (current month only)
     const dayStats: Record<number, number[]> = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     
-    Object.entries(moodHistory).forEach(([dateKey, entry]) => {
+    currentMonthEntries.forEach(([dateKey, entry]) => {
       const date = new Date(dateKey + 'T00:00:00');
       const dayOfWeek = date.getDay();
       dayStats[dayOfWeek].push(entry.mood);
@@ -261,7 +401,7 @@ export default function MoodCalendar() {
       count: moods.length
     })).filter(d => d.count > 0);
 
-    if (dayAverages.length > 0) {
+    if (dayAverages.length > 1) { // Need at least 2 different days to compare
       const sortedDays = dayAverages.sort((a, b) => a.average - b.average);
       const saddestDay = sortedDays[0];
       const happiestDay = sortedDays[sortedDays.length - 1];
@@ -269,21 +409,21 @@ export default function MoodCalendar() {
       if (saddestDay.average < happiestDay.average) {
         patterns.push({
           icon: '📉',
-          text: `Your lowest moods tend to be on ${dayNames[saddestDay.day]}s`,
+          text: `Your lowest moods this month tend to be on ${dayNames[saddestDay.day]}s`,
           type: 'warning'
         });
 
         patterns.push({
           icon: '📈',
-          text: `${dayNames[happiestDay.day]}s are typically your best days`,
+          text: `${dayNames[happiestDay.day]}s are typically your best days this month`,
           type: 'positive'
         });
       }
     }
 
-    // Overall mood trend
-    const totalEntries = Object.keys(moodHistory).length;
-    const averageMood = Object.values(moodHistory).reduce((sum, entry) => sum + entry.mood, 0) / totalEntries;
+    // Current month mood trend
+    const totalEntries = currentMonthEntries.length;
+    const averageMood = currentMonthEntries.reduce((sum, [, entry]) => sum + entry.mood, 0) / totalEntries;
     
     if (averageMood >= 4) {
       patterns.push({
@@ -324,24 +464,32 @@ export default function MoodCalendar() {
         </View>
       );
     });
-  }, [moodHistory, colors]);
+  }, [moodHistory, colors, displayMonth]);
 
-  // Render mood history as a chronological list
+  // Generate list of last 6 months for history view
+  const getLastSixMonths = useCallback(() => {
+    const months = [];
+    const today = new Date();
+    
+    for (let i = 0; i < 6; i++) {
+      const monthDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      months.push({
+        date: monthDate,
+        key: `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`,
+        name: monthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+      });
+    }
+    
+    return months;
+  }, []);
+
+  // Render mood history as monthly sections for last 6 months
   const renderMoodHistory = useCallback(() => {
-    const entries = Object.entries(moodHistory)
-      .map(([dateKey, entry]) => ({
-        ...entry,
-        dateKey,
-        displayDate: new Date(dateKey + 'T00:00:00').toLocaleDateString('en-AU', {
-          weekday: 'short',
-          day: '2-digit',
-          month: 'short',
-          year: '2-digit'
-        })
-      }))
-      .sort((a, b) => new Date(b.dateKey + 'T00:00:00').getTime() - new Date(a.dateKey + 'T00:00:00').getTime());
-
-    if (entries.length === 0) {
+    const lastSixMonths = getLastSixMonths();
+    
+    // Check if there are any entries at all
+    const totalEntries = Object.keys(moodHistory).length;
+    if (totalEntries === 0) {
       return (
         <View style={styles.emptyHistoryContainer}>
           <Text style={[styles.emptyHistoryText, { color: colors.textMuted }]}>No mood history yet!</Text>
@@ -349,59 +497,95 @@ export default function MoodCalendar() {
         </View>
       );
     }
-
+    
     return (
       <View style={styles.historyContainer}>
-        {entries.map((entry, index) => {
-          const moodDescriptions = {
-            1: 'Rough',
-            2: 'Meh', 
-            3: 'Fine',
-            4: 'Great',
-            5: 'Peak'
-          };
-          
-          const moodLabel = moodDescriptions[entry.mood as keyof typeof moodDescriptions];
-          const moodColor = getMoodColor(entry.mood);
+        {lastSixMonths.map((month, index) => {
+          // Get all entries for this month
+          const monthEntries = Object.entries(moodHistory)
+            .filter(([dateKey]) => dateKey.startsWith(month.key))
+            .map(([dateKey, entry]) => ({
+              ...entry,
+              dateKey,
+              displayDate: new Date(dateKey + 'T00:00:00').toLocaleDateString('en-US', {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short'
+              })
+            }))
+            .sort((a, b) => new Date(b.dateKey + 'T00:00:00').getTime() - new Date(a.dateKey + 'T00:00:00').getTime());
           
           return (
-            <TouchableOpacity
-              key={entry.dateKey}
-              style={[styles.historyItem, { backgroundColor: colors.surface }]}
-              onPress={() => {
-                setSelectedMoodData({
-                  date: entry.displayDate,
-                  mood: moodLabel,
-                  journal: entry.journal || '',
-                  moodValue: entry.mood,
-                  moodColor: moodColor
-                });
-                setModalVisible(true);
-              }}
-            >
-              <View style={styles.historyItemHeader}>
-                <View style={styles.historyDateContainer}>
-                  <Text style={[styles.historyDate, { color: colors.text }]}>{entry.displayDate}</Text>
-                </View>
-                <View style={styles.historyMoodContainer}>
-                  <View style={[styles.historyMoodDot, { backgroundColor: moodColor }]} />
-                  <Text style={[styles.historyMoodLabel, { color: moodColor }]}>{moodLabel}</Text>
-                </View>
+            <View key={month.key} style={[styles.historyMonthSection, { backgroundColor: colors.surface }]}>
+              <View style={[styles.historyMonthHeader, { backgroundColor: colors.cardBackground }]}>
+                <Text style={[styles.historyMonthTitle, { color: colors.text }]}>{month.name}</Text>
+                <Text style={[styles.historyMonthStats, { color: colors.textMuted }]}>
+                  {monthEntries.length} {monthEntries.length === 1 ? 'entry' : 'entries'}
+                </Text>
               </View>
               
-              {entry.journal && entry.journal.trim() && (
-                <View style={[styles.historyJournalContainer, { borderTopColor: colors.border }]}>
-                  <Text style={[styles.historyJournalText, { color: colors.textMuted }]} numberOfLines={2}>
-                    "{entry.journal}"
-                  </Text>
+              {monthEntries.length === 0 ? (
+                <View style={styles.historyEmptyMonth}>
+                  <Text style={[styles.historyEmptyMonthText, { color: colors.textMuted }]}>No entries this month</Text>
+                </View>
+              ) : (
+                <View style={styles.historyMonthEntries}>
+                  {/* Mood Distribution Bar Chart */}
+                  <View style={styles.moodSegmentedBarContainer}>
+                    {/* Horizontal Bar with Color Segments */}
+                    <View style={styles.segmentedBar}>
+                      {[1, 2, 3, 4, 5].map(mood => {
+                        const entriesForMood = monthEntries.filter(entry => entry.mood === mood).length;
+                        if (entriesForMood === 0) return null;
+                        
+                        return (
+                          <View
+                            key={mood}
+                            style={{
+                              height: '100%',
+                              backgroundColor: getMoodColor(mood),
+                              flex: entriesForMood,
+                              minWidth: 1,
+                            }}
+                          />
+                        );
+                      })}
+                    </View>
+                    
+                    {/* Color Legend */}
+                    <View style={styles.moodLegend}>
+                      {[
+                        { mood: 1, name: 'Rough' },
+                        { mood: 2, name: 'Meh' },
+                        { mood: 3, name: 'Fine' },
+                        { mood: 4, name: 'Great' },
+                        { mood: 5, name: 'Peak' }
+                      ].map(({ mood, name }) => {
+                        const count = monthEntries.filter(entry => entry.mood === mood).length;
+                        if (count === 0) return null;
+                        
+                        return (
+                          <View key={mood} style={styles.legendItem}>
+                            <View style={[
+                              styles.legendCircle,
+                              { backgroundColor: getMoodColor(mood) }
+                            ]} />
+                            <Text style={[styles.legendText, { color: colors.text }]}>
+                              {name}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
                 </View>
               )}
-            </TouchableOpacity>
+            </View>
           );
         })}
       </View>
     );
-  }, [moodHistory, getMoodColor, colors]);
+  }, [moodHistory, colors, getMoodColor, getMoodEmoji, getLastSixMonths]);
 
   return (
     <View style={[
@@ -452,6 +636,50 @@ export default function MoodCalendar() {
             </TouchableOpacity>
           </View>
 
+          {/* Development Helper - Clear All Data */}
+          {__DEV__ && (
+            <View style={[styles.devHelperContainer, { backgroundColor: colors.surface }]}>
+              <TouchableOpacity
+                style={[styles.devHelperButton, { 
+                  backgroundColor: isLoading ? '#9ca3af' : '#3b82f6',
+                  opacity: isLoading ? 0.7 : 1
+                }]}
+                onPress={injectTestData}
+                disabled={isLoading}
+              >
+                <Text style={styles.devHelperButtonText}>
+                  {isLoading ? '⏳ Generating Data...' : '🎲 Generate 6-Month Test Data'}
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.devHelperButton, { 
+                  backgroundColor: isLoading ? '#9ca3af' : '#ef4444', 
+                  marginTop: 8,
+                  opacity: isLoading ? 0.7 : 1
+                }]}
+                disabled={isLoading}
+                onPress={async () => {
+                  try {
+                    setIsLoading(true);
+                    const AsyncStorage = await import('@react-native-async-storage/async-storage');
+                    await AsyncStorage.default.removeItem('mood_entries');
+                    console.log('🗑️ All mood data cleared');
+                    await loadMoodHistory(); // Refresh
+                  } catch (error) {
+                    console.error('❌ Error clearing data:', error);
+                  } finally {
+                    setIsLoading(false);
+                  }
+                }}
+              >
+                <Text style={styles.devHelperButtonText}>
+                  {isLoading ? '⏳ Clearing...' : '🗑️ Clear All Data'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           <ScrollView 
             style={styles.scrollContainer}
             contentContainerStyle={styles.scrollContent}
@@ -459,11 +687,13 @@ export default function MoodCalendar() {
           >
             {viewMode === 'calendar' ? (
               <>
-                {renderMonth(currentMonth)}
+                {renderMonth(displayMonth)}
                 
                 {/* Mood Patterns Analysis */}
                 <View style={[styles.patternsContainer, { backgroundColor: colors.surface }]}>
-                  <Text style={[styles.patternsTitle, { color: colors.text }]}>Monthly Patterns</Text>
+                  <Text style={[styles.patternsTitle, { color: colors.text }]}>
+                    {displayMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} Patterns
+                  </Text>
                   {renderMoodPatterns()}
                 </View>
               </>
@@ -902,5 +1132,158 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     fontStyle: 'italic',
     lineHeight: 20,
+  },
+  // Monthly section styles for history view
+  historyMonthSection: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  historyMonthHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#f8fafc',
+  },
+  historyMonthTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  historyMonthStats: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  historyMonthEntries: {
+    padding: 16,
+  },
+  historyEmptyMonth: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  historyEmptyMonthText: {
+    fontSize: 14,
+    color: '#9ca3af',
+    fontStyle: 'italic',
+  },
+  historyMonthEntry: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  historyMonthEntryLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  historyMonthMoodIndicator: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  historyMonthMoodEmoji: {
+    fontSize: 16,
+  },
+  historyMonthEntryDetails: {
+    flex: 1,
+  },
+  historyMonthEntryDate: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 2,
+  },
+  historyMonthEntryMood: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  historyMonthEntryJournal: {
+    fontSize: 12,
+    color: '#9ca3af',
+    maxWidth: 120,
+    marginLeft: 8,
+  },
+  historyMoreEntries: {
+    fontSize: 12,
+    color: '#9ca3af',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  // Development helper styles
+  devHelperContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginHorizontal: 20,
+    marginBottom: 10,
+  },
+  devHelperButton: {
+    backgroundColor: '#ef4444',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  devHelperButtonText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  // Segmented bar graph styles for history view
+  moodSegmentedBarContainer: {
+    paddingVertical: 16,
+    paddingHorizontal: 4,
+  },
+  segmentedBar: {
+    flexDirection: 'row',
+    height: 24,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#f1f5f9',
+    marginBottom: 12,
+  },
+  moodSegment: {
+    height: '100%',
+    minWidth: 1, // Ensure very small segments are still visible
+  },
+  moodLegend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    gap: 8,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  legendCircle: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  legendText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
 });
