@@ -800,7 +800,10 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
               <TouchableOpacity 
                 style={[
                   styles.saveButton, 
-                  { marginBottom: Platform.OS === 'android' ? insets.bottom + 20 : 15 }
+                  { 
+                    backgroundColor: selectedMood ? getOrbColor(selectedMood) : '#0284c7',
+                    marginBottom: Platform.OS === 'android' ? insets.bottom + 20 : 15 
+                  }
                 ]} 
                 onPress={saveMoodEntry}
               >
@@ -1047,7 +1050,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   saveButton: {
-    backgroundColor: '#0284c7',
     borderRadius: 25,
     paddingHorizontal: 30,
     paddingVertical: 10, // Reduced from 12
