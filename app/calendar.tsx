@@ -55,11 +55,11 @@ export default function MoodCalendar() {
   // Memoized mood helper functions
   const getMoodColor = useCallback((mood: number) => {
     const colors = {
-      1: '#f87171', // Rough - Coral Red
-      2: '#fb923c', // Meh - Orange  
+      1: '#ef4444', // Rough - True Red
+      2: '#fb923c', // Meh - Orange
       3: '#fbbf24', // Fine - Amber
-      4: '#34d399', // Great - Emerald
-      5: '#10b981', // Peak - Green
+      4: '#22c55e', // Great - Bright Green
+      5: '#8b5cf6', // Peak - Purple
     };
     return colors[mood as keyof typeof colors] || '#e5e7eb';
   }, []);
@@ -374,10 +374,11 @@ export default function MoodCalendar() {
       dateKey.startsWith(currentMonthKey)
     );
 
-    if (currentMonthEntries.length === 0) {
+    // Require at least 7 days of data for meaningful patterns
+    if (currentMonthEntries.length < 7) {
       return (
         <Text style={[styles.noDataText, { color: colors.textMuted }]}>
-          Track more moods this month to see patterns and insights!
+          Track moods for at least 7 days this month to see patterns and insights!
         </Text>
       );
     }
@@ -702,7 +703,6 @@ export default function MoodCalendar() {
                 {/* Mood History List */}
                 <View style={styles.historyTitle}>
                   <Text style={[styles.historyTitleText, { color: colors.text }]}>Your Mood Journey</Text>
-                  <Text style={[styles.historySubtitle, { color: colors.textMuted }]}>Tap any entry to see details</Text>
                 </View>
                 {renderMoodHistory()}
               </>

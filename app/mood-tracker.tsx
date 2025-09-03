@@ -14,6 +14,7 @@ import {
   Platform,
   Keyboard,
   ScrollView,
+  Modal,
 } from 'react-native';
 import { saveMoodEntry as saveToStorage, getMoodEntryForDate } from './storage';
 import { useTheme } from './ThemeContext';
@@ -40,6 +41,8 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
   const [containerPaddingBottom, setContainerPaddingBottom] = useState(100); // Dynamic padding
   const [tempSelectedMood, setTempSelectedMood] = useState<number | null>(3); // Default to Neutral
   const [isTextInputFocused, setIsTextInputFocused] = useState<boolean>(false);
+  const [showChangeMoodModal, setShowChangeMoodModal] = useState<boolean>(false);
+  const [showSaveSuccessModal, setShowSaveSuccessModal] = useState<boolean>(false);
 
   // Animation values
   const moodSelectorPosition = useRef(new Animated.Value(0)).current;
@@ -98,20 +101,20 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
 
   // Mood configurations with colors and labels
   const moodConfigs = {
-    1: { color: '#f87171', label: 'Rough', emoji: '😢' }, // Coral Red - warmer red
+    1: { color: '#ef4444', label: 'Rough', emoji: '😢' }, // True Red - more vibrant
     2: { color: '#fb923c', label: 'Meh', emoji: '😔' },   // Orange - warm transition
     3: { color: '#fbbf24', label: 'Fine', emoji: '😐' },  // Amber - rich gold
-    4: { color: '#34d399', label: 'Great', emoji: '😊' }, // Emerald - vibrant green
-    5: { color: '#10b981', label: 'Peak', emoji: '😄' },  // Green - deeper green
+    4: { color: '#22c55e', label: 'Great', emoji: '😊' }, // Bright Green - vibrant
+    5: { color: '#8b5cf6', label: 'Peak', emoji: '😄' },  // Purple - joyful peak
   };
 
   // Get interpolated color based on mood value (smooth transitions)
   const getOrbColor = (value: number) => {
     // Smooth color interpolation between mood colors
-    if (value <= 1) return '#f87171'; // Rough - Coral Red
+    if (value <= 1) return '#ef4444'; // Rough - True Red
     if (value <= 2) {
       const factor = value - 1;
-      return interpolateColor('#f87171', '#fb923c', factor); // Coral Red to Orange
+      return interpolateColor('#ef4444', '#fb923c', factor); // True Red to Orange
     }
     if (value <= 3) {
       const factor = value - 2;
@@ -119,13 +122,13 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
     }
     if (value <= 4) {
       const factor = value - 3;
-      return interpolateColor('#fbbf24', '#34d399', factor); // Amber to Emerald
+      return interpolateColor('#fbbf24', '#22c55e', factor); // Amber to Bright Green
     }
     if (value <= 5) {
       const factor = value - 4;
-      return interpolateColor('#34d399', '#10b981', factor); // Emerald to Green
+      return interpolateColor('#22c55e', '#8b5cf6', factor); // Bright Green to Purple
     }
-    return '#10b981'; // Peak - Green
+    return '#8b5cf6'; // Peak - Purple
   };
 
   // Helper function to interpolate between two hex colors
@@ -497,24 +500,33 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
     try {
       await saveToStorage(entry);
       console.log('Mood entry saved successfully for date:', localDateKey);
-      Alert.alert('Success', 'Mood entry saved!', [
-        { text: 'OK', onPress: () => {
-          // Reset form
-          setSelectedMood(null);
-          setJournalText('');
-          setCharacterCount(0);
-          setCurrentAdviceIndex(0);
-          
-          // Reset animations
-          Animated.parallel([
-            Animated.timing(moodSelectorPosition, {
-              toValue: 0,
-              duration: 500,
-              useNativeDriver: true,
-            }),
-            Animated.timing(contentOpacity, {
-              toValue: 0,
-              duration: 300,
+      
+      // Show success modal
+      setShowSaveSuccessModal(true);
+      
+      // Auto-dismiss modal after 2 seconds and show today's mood summary
+      setTimeout(() => {
+        setShowSaveSuccessModal(false);
+        // Reset form state completely
+        setSelectedMood(null);
+        setJournalText('');
+        setCharacterCount(0);
+        setCurrentAdviceIndex(0);
+        // Set the saved entry to show "Today's Mood" summary
+        setTodaysMoodEntry(entry);
+        setHasEntryToday(true);
+      }, 2000);
+      
+      // Reset form animations
+      Animated.parallel([
+        Animated.timing(moodSelectorPosition, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(contentOpacity, {
+          toValue: 0,
+          duration: 300,
               useNativeDriver: true,
             }),
             Animated.timing(sliderPosition, {
@@ -525,13 +537,6 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
           ]).start();
           
           setMoodValue(3); // Reset to neutral
-          
-          // Navigate to calendar
-          if (onNavigateToCalendar) {
-            onNavigateToCalendar();
-          }
-        }}
-      ]);
     } catch (error) {
       Alert.alert('Error', 'Failed to save mood entry. Please try again.');
     }
@@ -571,10 +576,7 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
             </View>
           
           <TouchableOpacity
-            onPress={() => {
-              setHasEntryToday(false);
-              setTodaysMoodEntry(null);
-            }}
+            onPress={() => setShowChangeMoodModal(true)}
             activeOpacity={1}
           >
             <Animated.View 
@@ -815,6 +817,71 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
         </>
       )}
       </View>
+
+      {/* Change Mood Confirmation Modal */}
+      <Modal
+        visible={showChangeMoodModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowChangeMoodModal(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowChangeMoodModal(false)}
+        >
+          <TouchableOpacity 
+            style={[styles.changeMoodModal, { backgroundColor: colors.surface }]}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              Change Today's Mood?
+            </Text>
+            <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
+              Do you want to update your mood entry for today? This will replace your current entry.
+            </Text>
+            
+            <TouchableOpacity
+              style={[styles.singleModalButton, { 
+                backgroundColor: todaysMoodEntry ? moodConfigs[todaysMoodEntry.mood as keyof typeof moodConfigs]?.color : '#0284c7'
+              }]}
+              onPress={() => {
+                setShowChangeMoodModal(false);
+                setHasEntryToday(false);
+                setTodaysMoodEntry(null);
+                // Pre-select Fine (3) as the default mood
+                setTempSelectedMood(3);
+                setMoodValue(3);
+              }}
+            >
+              <Text style={styles.confirmButtonText}>Change Mood</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Save Success Modal */}
+      <Modal
+        visible={showSaveSuccessModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowSaveSuccessModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.changeMoodModal, { backgroundColor: colors.surface }]}>
+            <View style={styles.successIcon}>
+              <Text style={styles.checkmark}>✓</Text>
+            </View>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              Entry Saved!
+            </Text>
+            <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
+              Your daily mood has been recorded.
+            </Text>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -1190,5 +1257,60 @@ const styles = StyleSheet.create({
   wordCountLimit: {
     color: '#dc2626', // Red when at limit
     fontWeight: '600',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  changeMoodModal: {
+    width: '85%',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  singleModalButton: {
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 25,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  successIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#22c55e',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  checkmark: {
+    fontSize: 32,
+    color: '#ffffff',
+    fontWeight: 'bold',
   },
 });
