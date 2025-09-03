@@ -230,7 +230,7 @@ export default function MoodCalendar() {
         </View>
       </View>
     );
-  }, [getDaysInMonth, formatDateKey, getMoodColor, getMoodEmoji, moodHistory]);
+  }, [getDaysInMonth, formatDateKey, getMoodColor, getMoodEmoji, moodHistory, colors]);
 
   // Analyze mood patterns for insights
   const renderMoodPatterns = useCallback(() => {
@@ -324,7 +324,7 @@ export default function MoodCalendar() {
         </View>
       );
     });
-  }, [moodHistory]);
+  }, [moodHistory, colors]);
 
   // Render mood history as a chronological list
   const renderMoodHistory = useCallback(() => {
@@ -401,7 +401,7 @@ export default function MoodCalendar() {
         })}
       </View>
     );
-  }, [moodHistory, getMoodColor]);
+  }, [moodHistory, getMoodColor, colors]);
 
   return (
     <View style={[
@@ -604,7 +604,7 @@ const styles = StyleSheet.create({
   },
   dayNumber: {
     fontSize: 16,
-    color: '#1e293b',
+    // Removed hardcoded color - will be set dynamically by { color: colors.text }
     fontWeight: '500',
   },
   todayText: {
@@ -663,22 +663,22 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   pattern_positive: {
-    backgroundColor: '#f0fdf4',
+    // Background will be set dynamically by getPatternStyle baseStyle
     borderLeftWidth: 4,
     borderLeftColor: '#16a34a',
   },
   pattern_warning: {
-    backgroundColor: '#fef3c7',
+    // Background will be set dynamically by getPatternStyle baseStyle
     borderLeftWidth: 4,
     borderLeftColor: '#f59e0b',
   },
   pattern_neutral: {
-    backgroundColor: '#f1f5f9',
+    // Background will be set dynamically by getPatternStyle baseStyle
     borderLeftWidth: 4,
     borderLeftColor: '#64748b',
   },
   pattern_support: {
-    backgroundColor: '#eff6ff',
+    // Background will be set dynamically by getPatternStyle baseStyle
     borderLeftWidth: 4,
     borderLeftColor: '#3b82f6',
   },
@@ -689,7 +689,7 @@ const styles = StyleSheet.create({
   patternText: {
     flex: 1,
     fontSize: 15,
-    color: '#374151',
+    // Removed hardcoded color - will be set dynamically by { color: colors.text }
     lineHeight: 20,
   },
   // Modal Styles
