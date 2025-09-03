@@ -29,6 +29,16 @@ interface MoodTrackerProps {
 export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  
+  // Debug: Log current safe area insets
+  console.log('🔍 Safe Area Insets:', {
+    top: insets.top,
+    bottom: insets.bottom,
+    left: insets.left,
+    right: insets.right,
+    platform: Platform.OS
+  });
+  
   const [selectedMood, setSelectedMood] = useState<number | null>(null);
   const [isEditingMood, setIsEditingMood] = useState<boolean>(false);
   const [moodValue, setMoodValue] = useState<number>(3); // Default to neutral (middle)
@@ -54,6 +64,15 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
   const orbRotation = useRef(new Animated.Value(0)).current;
   const sliderPosition = useRef(new Animated.Value(0.5)).current; // 0.5 for middle (neutral)
   const adviceOpacity = useRef(new Animated.Value(1)).current;
+  
+  // Animated values for mood option upward movement (one for each mood 1-5)
+  const moodOptionAnimations = useRef([
+    new Animated.Value(0), // mood 1
+    new Animated.Value(0), // mood 2
+    new Animated.Value(0), // mood 3
+    new Animated.Value(0), // mood 4
+    new Animated.Value(0), // mood 5
+  ]).current;
 
   // Mood-specific advice collections
   const moodAdvice = {
@@ -232,6 +251,15 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
     };
   }, []); // No dependencies - listeners handle all keyboard events
 
+  // Animate mood options when tempSelectedMood changes
+  useEffect(() => {
+    // Animate all mood options
+    [1, 2, 3, 4, 5].forEach(moodValue => {
+      const isSelected = tempSelectedMood === moodValue;
+      animateMoodOption(moodValue, isSelected);
+    });
+  }, [tempSelectedMood]);
+
   const getMoodLabel = (value: number) => {
     const config = moodConfigs[Math.round(value) as keyof typeof moodConfigs];
     return config ? config.label : moodConfigs[3].label;
@@ -281,6 +309,18 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
     setIsTextInputFocused(false);
     isTextInputFocusedRef.current = false;
     // Animation will be handled by keyboardDidHide listener
+  };
+
+  // Animate mood option upward movement
+  const animateMoodOption = (moodIndex: number, isSelected: boolean) => {
+    const animationValue = moodOptionAnimations[moodIndex - 1]; // Convert 1-5 to 0-4 index
+    
+    Animated.spring(animationValue, {
+      toValue: isSelected ? -8 : 0, // Move up 8px when selected, back to 0 when deselected
+      useNativeDriver: true,
+      tension: 200,
+      friction: 12,
+    }).start();
   };
 
   // Get current advice for selected mood
@@ -663,32 +703,43 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
           {(!selectedMood || isEditingMood) && (
             <View style={styles.moodOptionsContainer}>
               <View style={styles.moodOptionsGrid}>
-                {Object.entries(moodConfigs).map(([value, config]) => (
-                  <TouchableOpacity
-                    key={value}
-                    style={[
-                      styles.moodOption,
-                      selectedMood === parseInt(value) && styles.selectedMoodOption // Highlight current mood
-                    ]}
-                    activeOpacity={1}
-                    onPress={() => {
-                      const moodNum = parseInt(value);
-                      setTempSelectedMood(moodNum);
-                      setMoodValue(moodNum);
-                    }}
-                  >
-                    <View style={[
-                      styles.moodOptionOrb, 
-                      { backgroundColor: config.color },
-                      tempSelectedMood === parseInt(value) && styles.selectedMoodOption
-                    ]}>
-                      <View style={styles.moodOptionOrbInner}>
-                        <View style={styles.moodOptionOrbHighlight} />
-                      </View>
-                    </View>
-                    <Text style={[styles.moodOptionLabel, { color: colors.text }]}>{config.label}</Text>
-                  </TouchableOpacity>
-                ))}
+                {Object.entries(moodConfigs).map(([value, config]) => {
+                  const moodValue = parseInt(value);
+                  const animationValue = moodOptionAnimations[moodValue - 1]; // Convert 1-5 to 0-4 index
+                  
+                  return (
+                    <TouchableOpacity
+                      key={value}
+                      style={[
+                        styles.moodOption,
+                        selectedMood === moodValue && styles.selectedMoodOption // Highlight current mood
+                      ]}
+                      activeOpacity={1}
+                      onPress={() => {
+                        setTempSelectedMood(moodValue);
+                        setMoodValue(moodValue);
+                      }}
+                    >
+                      <Animated.View
+                        style={{
+                          alignItems: 'center',
+                          transform: [{ translateY: animationValue }]
+                        }}
+                      >
+                        <View style={[
+                          styles.moodOptionOrb, 
+                          { backgroundColor: config.color },
+                          tempSelectedMood === moodValue && styles.selectedMoodOption
+                        ]}>
+                          <View style={styles.moodOptionOrbInner}>
+                            <View style={styles.moodOptionOrbHighlight} />
+                          </View>
+                        </View>
+                        <Text style={[styles.moodOptionLabel, { color: colors.text }]}>{config.label}</Text>
+                      </Animated.View>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
               
               {/* Confirm Button - Only show when a mood is temporarily selected */}
@@ -1219,7 +1270,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   selectedMoodOption: {
-    transform: [{ scale: 1.1 }],
     shadowOpacity: 0.5,
     shadowRadius: 10,
     elevation: 12,

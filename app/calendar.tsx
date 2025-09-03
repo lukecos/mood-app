@@ -628,9 +628,8 @@ export default function MoodCalendar({ initialViewMode = 'calendar' }: MoodCalen
   const renderMoodHistory = useCallback(() => {
     const historicalMonths = getHistoricalMonths();
     
-    // Check if there are any entries at all
-    const totalEntries = Object.keys(moodHistory).length;
-    if (totalEntries === 0) {
+    // Check if there are any historical entries (not including current month)
+    if (historicalMonths.length === 0) {
       return (
         <View style={styles.emptyHistoryContainer}>
           <Text style={[styles.emptyHistoryText, { color: colors.textMuted }]}>No mood history yet!</Text>
