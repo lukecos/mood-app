@@ -184,9 +184,8 @@ export default function MoodCalendar() {
                     borderColor: '#0284c7' 
                   }],
                   moodEntry && { 
-                    backgroundColor: getMoodColor(moodEntry.mood), 
-                    borderWidth: 1,
-                    borderColor: 'rgba(255, 255, 255, 0.3)'
+                    backgroundColor: getMoodColor(moodEntry.mood)
+                    // Removed border for cleaner look in both light and dark modes
                   }
                 ]}
                 onPress={() => {
@@ -746,8 +745,7 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     marginRight: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    // Removed border for cleaner look in both light and dark modes
   },
   modalMoodValue: {
     fontSize: 18,

@@ -107,8 +107,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerButton: {
-    padding: 8,
-    borderRadius: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20, // Half of width/height for perfect circle
     backgroundColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
