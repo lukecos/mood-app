@@ -17,16 +17,28 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface MoodCalendarProps {
   initialViewMode?: 'calendar' | 'history';
+  refreshSignal?: number;
 }
 
-export default function MoodCalendar({ initialViewMode = 'calendar' }: MoodCalendarProps) {
+export default function MoodCalendar({ initialViewMode = 'calendar', refreshSignal }: MoodCalendarProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [moodHistory, setMoodHistory] = useState<Record<string, MoodEntry>>({});
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [viewMode, setViewMode] = useState<'calendar' | 'history'>(initialViewMode);
+  // Keep internal viewMode in sync when parent changes initialViewMode (e.g., toggling history)
+  useEffect(() => {
+    if (initialViewMode !== viewMode) {
+      setViewMode(initialViewMode);
+    }
+  }, [initialViewMode]);
+  // When refreshSignal changes, reload mood history from storage
+  // (used to request an explicit reload without remounting the component)
+  // Note: refreshSignal is intentionally not used for initial mount because
+  // the component already loads on mount.
+  
   const [selectedMoodData, setSelectedMoodData] = useState<{
     date: string;
     mood: string;
@@ -55,6 +67,14 @@ export default function MoodCalendar({ initialViewMode = 'calendar' }: MoodCalen
     const newDisplayMonth = determineDisplayMonth();
     setDisplayMonth(newDisplayMonth);
   }, [determineDisplayMonth]);
+
+  // Reload mood history when refreshSignal changes (explicit refresh requests)
+  useEffect(() => {
+    if (typeof refreshSignal === 'number') {
+      console.log('Refresh signal received:', refreshSignal);
+      loadMoodHistory();
+    }
+  }, [refreshSignal]);
 
   // Memoized mood helper functions
   const getMoodColor = useCallback((mood: number) => {
@@ -333,7 +353,7 @@ export default function MoodCalendar({ initialViewMode = 'calendar' }: MoodCalen
                   { backgroundColor: colors.surface },
                   isToday && [styles.today, { 
                     backgroundColor: colors.surface, 
-                    borderColor: '#0284c7' 
+                    borderColor: '#ffffff' 
                   }],
                   moodEntry && { 
                     backgroundColor: getMoodColor(moodEntry.mood)
@@ -735,56 +755,7 @@ export default function MoodCalendar({ initialViewMode = 'calendar' }: MoodCalen
         paddingBottom: Platform.OS === 'android' ? insets.bottom + 10 : 0
       }
     ]}>
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0284c7" />
-          <Text style={[styles.loadingText, { color: colors.textMuted }]}>Loading your mood history...</Text>
-        </View>
-      ) : (
-        <>
-          {/* Development Helper - Clear All Data */}
-          {__DEV__ && (
-            <View style={[styles.devHelperContainer, { backgroundColor: colors.surface }]}>
-              <TouchableOpacity
-                style={[styles.devHelperButton, { 
-                  backgroundColor: isLoading ? '#9ca3af' : '#3b82f6',
-                  opacity: isLoading ? 0.7 : 1
-                }]}
-                onPress={injectTestData}
-                disabled={isLoading}
-              >
-                <Text style={styles.devHelperButtonText}>
-                  {isLoading ? '⏳ Generating Data...' : '🎲 Generate Test Data (1-6 months)'}
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.devHelperButton, { 
-                  backgroundColor: isLoading ? '#9ca3af' : '#ef4444', 
-                  marginTop: 8,
-                  opacity: isLoading ? 0.7 : 1
-                }]}
-                disabled={isLoading}
-                onPress={async () => {
-                  try {
-                    setIsLoading(true);
-                    const AsyncStorage = await import('@react-native-async-storage/async-storage');
-                    await AsyncStorage.default.removeItem('mood_entries');
-                    console.log('🗑️ All mood data cleared');
-                    await loadMoodHistory(); // Refresh
-                  } catch (error) {
-                    console.error('❌ Error clearing data:', error);
-                  } finally {
-                    setIsLoading(false);
-                  }
-                }}
-              >
-                <Text style={styles.devHelperButtonText}>
-                  {isLoading ? '⏳ Clearing...' : '🗑️ Clear All Data'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+  <>
 
           <ScrollView 
             style={styles.scrollContainer}
@@ -861,8 +832,7 @@ export default function MoodCalendar({ initialViewMode = 'calendar' }: MoodCalen
               </Pressable>
             </Pressable>
           </Modal>
-        </>
-      )}
+  </>
     </View>
   );
 }
@@ -949,18 +919,7 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 50,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#64748b',
-    textAlign: 'center',
-  },
+  // loadingContainer and loadingText removed - loading UI is intentionally hidden
   patternsContainer: {
     backgroundColor: '#ffffff',
     borderRadius: 15,
@@ -1117,10 +1076,10 @@ const styles = StyleSheet.create({
   },
   // History View Styles
   historyTitle: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 15,
-    alignItems: 'center',
+  paddingHorizontal: 20,
+  paddingTop: 20,
+  paddingBottom: 15,
+  alignItems: 'center',
   },
   historyTitleText: {
     fontSize: 22,

@@ -34,6 +34,7 @@ function AppNavigationContent() {
           onPress={() => {
             setCurrentScreen('tracker');
             setShowHistory(false);
+            // Do not force a calendar refresh when switching to tracker
           }}
           style={[styles.headerButton, { 
             backgroundColor: currentScreen === 'tracker' ? colors.buttonBackground : 'transparent'
@@ -51,10 +52,7 @@ function AppNavigationContent() {
           onPress={() => {
             setCurrentScreen('calendar');
             setShowHistory(false);
-            // Refresh if we're switching from tracker OR from history mode
-            if (currentScreen !== 'calendar' || showHistory) {
-              setRefreshKey(prev => prev + 1);
-            }
+            // Do not force refresh here; refresh only when explicitly requested by child
           }}
           style={[styles.headerButton, { 
             backgroundColor: (currentScreen === 'calendar' && !showHistory) ? colors.buttonBackground : 'transparent'
@@ -72,10 +70,7 @@ function AppNavigationContent() {
           onPress={() => {
             setCurrentScreen('calendar');
             setShowHistory(true);
-            // Only refresh if we're not already in history mode
-            if (!showHistory) {
-              setRefreshKey(prev => prev + 1);
-            }
+            // Do not force refresh here; refresh only when explicitly requested by child
           }}
           style={[styles.headerButton, { 
             backgroundColor: showHistory ? colors.buttonBackground : 'transparent'
@@ -94,15 +89,19 @@ function AppNavigationContent() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {renderHeader()}
-      {currentScreen === 'tracker' ? (
-        <MoodTrackerApp onNavigateToCalendar={() => {
+      {/* Keep both screens mounted to avoid remount flicker. Toggle visibility with display style. */}
+      <View style={{ flex: 1, display: currentScreen === 'tracker' ? 'flex' : 'none' }}>
+        <MoodTrackerApp onNavigateToCalendar={(shouldRefresh?: boolean) => {
           setCurrentScreen('calendar');
           setShowHistory(false);
-          setRefreshKey(prev => prev + 1);
+          if (shouldRefresh) setRefreshKey(prev => prev + 1);
         }} />
-      ) : (
-        <MoodCalendar key={refreshKey} initialViewMode={showHistory ? 'history' : 'calendar'} />
-      )}
+      </View>
+
+      <View style={{ flex: 1, display: currentScreen === 'calendar' ? 'flex' : 'none' }}>
+        {/* Pass refreshSignal so MoodCalendar can reload without being remounted */}
+        <MoodCalendar refreshSignal={refreshKey} initialViewMode={showHistory ? 'history' : 'calendar'} />
+      </View>
     </SafeAreaView>
   );
 }

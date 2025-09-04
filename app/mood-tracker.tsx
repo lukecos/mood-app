@@ -23,7 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const { height: screenHeight } = Dimensions.get('window');
 
 interface MoodTrackerProps {
-  onNavigateToCalendar?: () => void;
+  onNavigateToCalendar?: (shouldRefresh?: boolean) => void;
 }
 
 export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProps) {
@@ -48,6 +48,7 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
   const [currentAdviceIndex, setCurrentAdviceIndex] = useState(0);
   const [todaysMoodEntry, setTodaysMoodEntry] = useState<any>(null);
   const [hasEntryToday, setHasEntryToday] = useState<boolean>(false);
+  const [isCheckingEntry, setIsCheckingEntry] = useState<boolean>(true);
   const [containerPaddingBottom, setContainerPaddingBottom] = useState(100); // Dynamic padding
   const [tempSelectedMood, setTempSelectedMood] = useState<number | null>(3); // Default to Neutral
   const [isTextInputFocused, setIsTextInputFocused] = useState<boolean>(false);
@@ -172,6 +173,7 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
 
   // Check if today's mood has already been entered
   const checkTodaysMood = async () => {
+    setIsCheckingEntry(true);
     try {
       const now = new Date();
       const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -195,6 +197,8 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
       // Ensure default mood is selected (Fine/3)
       setTempSelectedMood(3);
       setMoodValue(3);
+    } finally {
+      setIsCheckingEntry(false);
     }
   };
 
@@ -552,9 +556,12 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
         setJournalText('');
         setCharacterCount(0);
         setCurrentAdviceIndex(0);
-        // Set the saved entry to show "Today's Mood" summary
         setTodaysMoodEntry(entry);
         setHasEntryToday(true);
+        // Navigate to calendar and request a refresh since a new entry was just saved
+        if (typeof onNavigateToCalendar === 'function') {
+          onNavigateToCalendar(true);
+        }
       }, 2000);
       
       // Reset form animations
@@ -601,7 +608,7 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
         backgroundColor: colors.background 
       }]}>
         
-        {hasEntryToday ? (
+  {isCheckingEntry ? null : hasEntryToday ? (
           // Show today's mood summary
           <Animated.View 
             style={[
