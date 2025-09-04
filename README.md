@@ -63,84 +63,77 @@ A mindful mood tracking and journaling mobile application built with React Nativ
 - `npm run android` - Run on Android device/emulator
 - `npm run ios` - Run on iOS device/simulator
 - `npm run web` - Run in web browser
-- `npm run lint` - Run ESLint
+# SimpleMoods — Mood Tracker Mobile App
 
-## Project Structure
+A small, mobile-first mood tracking and journaling app built with React Native + Expo and TypeScript.
 
-```
-app/
-├── _layout.tsx          # Root layout with navigation setup
-└── index.tsx            # Main home screen with mood tracking interface
-assets/                  # App icons, splash screen, and other assets
-```
+This repository contains a lightweight tracker, a journal, and a visual calendar to review past moods.
 
-## Usage
+## Quick overview
 
-1. **Select Your Mood**: Tap one of the 5 mood levels using the colorful emoji buttons
-2. **Journal Your Thoughts**: Write about why you're feeling this way in the text area
-3. **Add Actionable Steps**: Create specific tasks or actions to improve your mood:
-   - Type in the input field and tap "Add"
-   - Check off completed steps by tapping the checkbox
-   - Remove steps by tapping "Remove"
-4. **Save Your Entry**: Tap "Save Mood Entry" to record your daily mood
+- Daily mood scale (1-5) with emoji and color-coded orb
+- Short journal prompt per entry
+- Actionable steps checklist per day
+- Visual calendar and history views
+- Local storage via AsyncStorage (no backend required)
 
-## Mobile Features
+## Recent fix
 
-- **Touch Optimized**: Large, touch-friendly buttons and inputs
-- **Native Scrolling**: Smooth, native scrolling behavior
-- **Safe Area**: Respects device safe areas (notches, home indicators)
-- **Alerts**: Native mobile alert dialogs
-- **Keyboard Handling**: Proper keyboard avoidance on mobile
+- Calendar navigation now avoids unnecessary remounts to prevent a brief empty/flicker state when switching screens. The calendar only reloads when a new entry is saved (explicit refresh signal).
 
-## Development Goals
+## Tech
 
-This app is designed to support anxiety management and mindfulness practices by:
-- Encouraging daily self-reflection through mood tracking
-- Providing a space to externalize thoughts and feelings through journaling
-- Promoting proactive mental health through actionable step planning
-- Offering a calming, interactive experience through the planned relaxation game
+- React Native + Expo
+- TypeScript
+- AsyncStorage for local persistence
+- Tailwind / custom styles (project uses stylesheet files)
 
-## Testing the App
+## Getting started (developer)
 
-### On Your Phone (Recommended)
-1. Download **Expo Go** from App Store (iOS) or Google Play (Android)
-2. Run `npm start` in your project directory
-3. Scan the QR code with Expo Go (Android) or Camera app (iOS)
+Prerequisites
+- Node.js (18+ recommended)
+- npm
+- Expo CLI (optional) or use `npm start` / `npx expo start`
 
-### On Computer
-- **Web**: Press 'w' to open in browser
-- **Android Emulator**: Press 'a' (requires Android Studio)
-- **iOS Simulator**: Press 'i' (requires Xcode on macOS)
+Install
 
-## Building for Production
-
-```bash
-# Install EAS CLI
-npm install -g @expo/eas-cli
-
-# Build for app stores
-npm run build
-
-# Submit to app stores
-npm run submit
+```powershell
+npm install
 ```
 
-## Future Enhancements
+Run (development)
 
-- AsyncStorage/SQLite for offline data persistence
-- Push notifications for daily mood tracking reminders
-- Biometric authentication for privacy
-- Interactive relaxation game with physics-based orb interactions
-- Mood analytics with charts and trends
-- Export mood data functionality
-- Social sharing features (optional)
-- Dark mode support
-- Accessibility improvements
+```powershell
+npm start
+# or
+npx expo start
+```
 
-## Contributing
+Run on device/emulator
+- Android emulator: `npm run android` (requires Android Studio)
+- iOS simulator: `npm run ios` (macOS + Xcode)
+- Expo Go: scan QR code
 
-This project is in active development. Feel free to contribute ideas and feedback.
+## Project layout (important files)
+
+- `app/` — primary app screens and components
+   - `mood-tracker.tsx` — mood entry UI
+   - `calendar.tsx` — calendar & history views
+   - `navigation.tsx` — header and screen routing (keeps calendar mounted to avoid flicker)
+   - `storage.ts` — AsyncStorage helpers
+- `assets/` — icons and images
+- `package.json` — scripts and dependencies
+
+## Notes for contributors
+- Keep the calendar mounted to avoid visual flicker; use the `refreshSignal` prop to trigger data reloads when necessary.
+- Keep UI changes small and test on device for touch/keyboard behavior.
+
+## How to verify the calendar-flicker fix locally
+1. Start dev server: `npm start`
+2. Open Calendar — entries should show immediately (no flash of empty state)
+3. Navigate away (History/Home) and back — calendar should not flash empty
+4. Save a new mood entry — calendar should update to show the new entry
 
 ## License
+Private repository — internal use.
 
-This project is private and proprietary.
