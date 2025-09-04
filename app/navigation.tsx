@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TouchableOpacity, Text, StyleSheet, SafeAreaView, Platform } from 'react-native';
+import { View, TouchableOpacity, Text, StyleSheet, SafeAreaView, Platform, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -19,17 +19,22 @@ function AppNavigationContent() {
       paddingTop: insets.top + 10,
       backgroundColor: colors.headerBackground,
       borderBottomColor: colors.border
-    }]}>
-      <Text style={[styles.headerTitle, { color: colors.text }]}>
-        SimpleMoods
-      </Text>
-      
+    }]}> 
+      <View style={styles.headerTitleRow}>
+        <Image
+          source={require('../assets/AppLogo.png')}
+          style={styles.headerIcon}
+          resizeMode="contain"
+        />
+        <Text style={[styles.headerTitle, { color: colors.text }]}>SimpleMoods</Text>
+      </View>
       <View style={styles.headerButtons}>
         {/* Home/Tracker button */}
         <TouchableOpacity
           onPress={() => {
             setCurrentScreen('tracker');
             setShowHistory(false);
+            // Do not force a calendar refresh when switching to tracker
           }}
           style={[styles.headerButton, { 
             backgroundColor: currentScreen === 'tracker' ? colors.buttonBackground : 'transparent'
@@ -47,10 +52,7 @@ function AppNavigationContent() {
           onPress={() => {
             setCurrentScreen('calendar');
             setShowHistory(false);
-            // Refresh if we're switching from tracker OR from history mode
-            if (currentScreen !== 'calendar' || showHistory) {
-              setRefreshKey(prev => prev + 1);
-            }
+            // Do not force refresh here; refresh only when explicitly requested by child
           }}
           style={[styles.headerButton, { 
             backgroundColor: (currentScreen === 'calendar' && !showHistory) ? colors.buttonBackground : 'transparent'
@@ -68,10 +70,7 @@ function AppNavigationContent() {
           onPress={() => {
             setCurrentScreen('calendar');
             setShowHistory(true);
-            // Only refresh if we're not already in history mode
-            if (!showHistory) {
-              setRefreshKey(prev => prev + 1);
-            }
+            // Do not force refresh here; refresh only when explicitly requested by child
           }}
           style={[styles.headerButton, { 
             backgroundColor: showHistory ? colors.buttonBackground : 'transparent'
@@ -90,15 +89,19 @@ function AppNavigationContent() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {renderHeader()}
-      {currentScreen === 'tracker' ? (
-        <MoodTrackerApp onNavigateToCalendar={() => {
+      {/* Keep both screens mounted to avoid remount flicker. Toggle visibility with display style. */}
+      <View style={{ flex: 1, display: currentScreen === 'tracker' ? 'flex' : 'none' }}>
+        <MoodTrackerApp onNavigateToCalendar={(shouldRefresh?: boolean) => {
           setCurrentScreen('calendar');
           setShowHistory(false);
-          setRefreshKey(prev => prev + 1);
+          if (shouldRefresh) setRefreshKey(prev => prev + 1);
         }} />
-      ) : (
-        <MoodCalendar key={refreshKey} initialViewMode={showHistory ? 'history' : 'calendar'} />
-      )}
+      </View>
+
+      <View style={{ flex: 1, display: currentScreen === 'calendar' ? 'flex' : 'none' }}>
+        {/* Pass refreshSignal so MoodCalendar can reload without being remounted */}
+        <MoodCalendar refreshSignal={refreshKey} initialViewMode={showHistory ? 'history' : 'calendar'} />
+      </View>
     </SafeAreaView>
   );
 }
@@ -112,6 +115,16 @@ export default function AppNavigation() {
 }
 
 const styles = StyleSheet.create({
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerIcon: {
+    width: 28,
+    height: 28,
+    marginRight: 8,
+    borderRadius: 6,
+  },
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
