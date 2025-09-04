@@ -23,7 +23,7 @@
         "foregroundImage": "./assets/AppLogo.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.moodtracker.app"
+      "package": "com.simplemoodstrackerapplication.app"
     },
     "web": {
       "bundler": "metro",

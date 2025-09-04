@@ -67,33 +67,20 @@ const darkColors = {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setTheme] = useState<Theme>('light');
+  // Force dark mode by default. Do not load or persist theme preference.
+  // This app is intended to always use dark mode.
+  const [theme, setTheme] = useState<Theme>('dark');
 
   useEffect(() => {
-    // Load saved theme preference
-    const loadTheme = async () => {
-      try {
-        const savedTheme = await AsyncStorage.getItem('theme');
-        if (savedTheme === 'dark' || savedTheme === 'light') {
-          setTheme(savedTheme);
-        }
-      } catch (error) {
-        console.error('Error loading theme:', error);
-      }
-    };
-    
-    loadTheme();
+    // Ensure theme remains dark on mount
+    setTheme('dark');
   }, []);
 
-  const toggleTheme = async () => {
-    const newTheme: Theme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    
-    try {
-      await AsyncStorage.setItem('theme', newTheme);
-    } catch (error) {
-      console.error('Error saving theme:', error);
-    }
+  // Disable toggling to enforce dark-only UI
+  const toggleTheme = () => {
+    // Intentionally a no-op: theme is forced to dark
+    // Keep function for API compatibility
+    console.log('toggleTheme called, but theme is forced to dark');
   };
 
   const colors = theme === 'light' ? lightColors : darkColors;
