@@ -39,6 +39,9 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
     right: insets.right,
     platform: Platform.OS
   });
+  // Compute Save button bottom margin once per render and log it for debugging
+  const saveButtonMarginBottom = Platform.OS === 'android' ? insets.bottom + 64 : 20;
+  console.log('💡 Save button computed marginBottom:', saveButtonMarginBottom, 'insets.bottom:', insets.bottom);
   
   const [selectedMood, setSelectedMood] = useState<number | null>(null);
   const [isEditingMood, setIsEditingMood] = useState<boolean>(false);
@@ -810,7 +813,8 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
               {/* Journal Section - Animated container for keyboard movement */}
               <Animated.View
                 style={{
-                  transform: [{ translateY: textInputPosition }],
+                  // Keep existing animated translate and apply a small static upward shift
+                  transform: [{ translateY: textInputPosition }, { translateY: -10 }],
                 }}
               >
                 <View style={[styles.section, { backgroundColor: colors.surface }]}>
@@ -873,7 +877,8 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
                   styles.saveButton, 
                   { 
                     backgroundColor: selectedMood ? getOrbColor(selectedMood) : '#0284c7',
-                    marginBottom: Platform.OS === 'android' ? insets.bottom + 20 : 15 
+                    // Increase Android bottom margin so the Save button sits above nav UI
+                    marginBottom: Platform.OS === 'android' ? insets.bottom + 64 : 20 
                   }
                 ]} 
                 onPress={saveMoodEntry}
