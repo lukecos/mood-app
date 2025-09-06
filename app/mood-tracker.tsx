@@ -209,20 +209,26 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
 
   // Keyboard event listeners - primary drivers for text input animation
   useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
-      console.log('Keyboard did show - animating text input and mood sphere up');
+    // Use keyboard event coordinates so the animation adapts to different device keyboards
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e: any) => {
+      const kbHeight = (e && e.endCoordinates && e.endCoordinates.height) ? e.endCoordinates.height : 150;
+      // Clamp values to avoid excessive offsets on very tall keyboards
+      const textInputOffset = -Math.min(kbHeight, 300);
+      const sphereOffset = -Math.min(Math.round(kbHeight * 0.35), 100);
+
+      console.log('Keyboard did show - height:', kbHeight, 'textInputOffset:', textInputOffset, 'sphereOffset:', sphereOffset);
       setIsTextInputFocused(true);
       isTextInputFocusedRef.current = true;
-      
-      // Animate both text input and mood sphere up
+
+      // Animate both text input and mood sphere up using keyboard height
       Animated.parallel([
         Animated.timing(textInputPosition, {
-          toValue: -150, // Back to original distance for text input
+          toValue: textInputOffset,
           duration: 300,
           useNativeDriver: true,
         }),
         Animated.timing(moodSpherePosition, {
-          toValue: -60, // Move mood sphere up by 60px
+          toValue: sphereOffset,
           duration: 300,
           useNativeDriver: true,
         })
@@ -233,7 +239,7 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
       console.log('Keyboard did hide - animating text input and mood sphere down');
       setIsTextInputFocused(false);
       isTextInputFocusedRef.current = false;
-      
+
       // Animate both back to original positions
       Animated.parallel([
         Animated.timing(textInputPosition, {
