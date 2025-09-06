@@ -4,6 +4,7 @@ import {
   View,
   Text,
   TouchableOpacity,
+  Pressable,
   TextInput,
   StyleSheet,
   Dimensions,
@@ -212,9 +213,12 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
     // Use keyboard event coordinates so the animation adapts to different device keyboards
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e: any) => {
       const kbHeight = (e && e.endCoordinates && e.endCoordinates.height) ? e.endCoordinates.height : 150;
-      // Clamp values to avoid excessive offsets on very tall keyboards
-      const textInputOffset = -Math.min(kbHeight, 300);
-      const sphereOffset = -Math.min(Math.round(kbHeight * 0.35), 100);
+      // Use gentler multipliers so content doesn't move too far on large keyboards
+      const clampedKb = Math.min(kbHeight, 300);
+      // Text input should move roughly half the keyboard height, but no more than 160
+      const textInputOffset = -Math.min(Math.round(clampedKb * 0.5), 160);
+      // Mood sphere should move less so it stays visible; cap at 60
+      const sphereOffset = -Math.min(Math.round(clampedKb * 0.25), 60);
 
       console.log('Keyboard did show - height:', kbHeight, 'textInputOffset:', textInputOffset, 'sphereOffset:', sphereOffset);
       setIsTextInputFocused(true);
@@ -608,11 +612,12 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
       keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
       enabled={true}
     >
+      <Pressable onPress={() => Keyboard.dismiss()} style={{ flex: 1 }}>
       <View style={[styles.container, { 
         paddingBottom: 50, // Fixed padding to prevent smooshing
         paddingTop: insets.top + 20, // Proper top spacing for header
         backgroundColor: colors.background 
-      }]}>
+      }]}> 
         
   {isCheckingEntry ? null : hasEntryToday ? (
           // Show today's mood summary
@@ -880,7 +885,8 @@ export default function MoodTrackerApp({ onNavigateToCalendar }: MoodTrackerProp
         </Animated.View>
         </>
       )}
-      </View>
+  </View>
+  </Pressable>
 
       {/* Change Mood Confirmation Modal */}
       <Modal
